@@ -136,56 +136,59 @@ export default function ProcessDetail() {
       </div>
 
       {editingStep && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setEditingStep(null)}>
-          <form onSubmit={saveStep} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-auto flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 flex-shrink-0">
-              <h3 className="font-semibold text-slate-900">{editingStep === 'new' ? 'Nuevo paso' : 'Editar paso'}</h3>
-              <button type="button" onClick={() => setEditingStep(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
-            </div>
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
-                <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+        <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setEditingStep(null)}>
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"/>
+          <div className="relative min-h-full flex items-center justify-center p-4">
+            <form onSubmit={saveStep} onClick={e => e.stopPropagation()} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
+              <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900">{editingStep === 'new' ? 'Nuevo paso' : 'Editar paso'}</h3>
+                <button type="button" onClick={() => setEditingStep(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-                <textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="p-5 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Orden</label>
-                  <input type="number" min="0" value={form.orden} onChange={e => setForm({ ...form, orden: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+                  <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Puntos</label>
-                  <input type="number" min="0" value={form.puntos} onChange={e => setForm({ ...form, puntos: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                  <textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Orden</label>
+                    <input type="number" min="0" value={form.orden} onChange={e => setForm({ ...form, orden: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Puntos</label>
+                    <input type="number" min="0" value={form.puntos} onChange={e => setForm({ ...form, puntos: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sistema de consecuencias</label>
+                  <select value={form.sistema_consecuencias_id} onChange={e => setForm({ ...form, sistema_consecuencias_id: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                    <option value="">— Ninguno —</option>
+                    {consequences.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer">
+                    <span className="text-sm text-slate-700 flex items-center gap-2"><Camera className="w-4 h-4 text-blue-600"/>Requiere evidencia</span>
+                    <input type="checkbox" checked={form.requiere_evidencia} onChange={e => setForm({ ...form, requiere_evidencia: e.target.checked })}/>
+                  </label>
+                  <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer">
+                    <span className="text-sm text-slate-700 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-600"/>Es crítico</span>
+                    <input type="checkbox" checked={form.es_critico} onChange={e => setForm({ ...form, es_critico: e.target.checked })}/>
+                  </label>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Sistema de consecuencias</label>
-                <select value={form.sistema_consecuencias_id} onChange={e => setForm({ ...form, sistema_consecuencias_id: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
-                  <option value="">— Ninguno —</option>
-                  {consequences.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </select>
+              <div className="flex justify-end gap-2 p-5 border-t border-slate-100">
+                <button type="button" onClick={() => setEditingStep(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                <button type="submit" disabled={saving} className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}Guardar
+                </button>
               </div>
-              <div className="space-y-2">
-                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer">
-                  <span className="text-sm text-slate-700 flex items-center gap-2"><Camera className="w-4 h-4 text-blue-600"/>Requiere evidencia</span>
-                  <input type="checkbox" checked={form.requiere_evidencia} onChange={e => setForm({ ...form, requiere_evidencia: e.target.checked })}/>
-                </label>
-                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer">
-                  <span className="text-sm text-slate-700 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-600"/>Es crítico</span>
-                  <input type="checkbox" checked={form.es_critico} onChange={e => setForm({ ...form, es_critico: e.target.checked })}/>
-                </label>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-slate-100 flex-shrink-0">
-              <button type="button" onClick={() => setEditingStep(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-              <button type="submit" disabled={saving} className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}Guardar
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -247,66 +247,69 @@ export default function ExecutionDetail() {
 
       {/* ---------- EVIDENCE MODAL ---------- */}
       {evidenceStep && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setEvidenceModalIdx(null)}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-auto flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 flex-shrink-0">
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">Paso {evidenceModalIdx + 1} de {steps.length}</p>
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-blue-600"/>{evidenceStep.paso_nombre}
-                </h3>
+        <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setEvidenceModalIdx(null)}>
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"/>
+          <div className="relative min-h-full flex items-center justify-center p-4">
+            <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
+              <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Paso {evidenceModalIdx + 1} de {steps.length}</p>
+                  <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-blue-600"/>{evidenceStep.paso_nombre}
+                  </h3>
+                </div>
+                <button onClick={() => setEvidenceModalIdx(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
               </div>
-              <button onClick={() => setEvidenceModalIdx(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
-            </div>
 
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
-              {evidenceStep.paso_es_critico && (
-                <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl p-3 text-xs flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5"/>
-                  <span>Este paso es crítico. Su omisión genera consecuencias según el sistema configurado.</span>
-                </div>
-              )}
-
-              {evidenceStep.paso_descripcion && (
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-line">
-                  {evidenceStep.paso_descripcion}
-                </div>
-              )}
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Evidencia (imagen) <span className="text-red-500">*</span></label>
-                {evidenceStep.evidencia ? (
-                  <div className="space-y-2">
-                    <img src={evidenceStep.evidencia} alt="evidencia" className="w-full max-h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"/>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500 truncate">{evidenceStep.evidencia_nombre}</span>
-                      <button onClick={() => removeEvidence(evidenceModalIdx)} className="text-red-600 hover:underline flex items-center gap-1">
-                        <X className="w-3 h-3"/>Quitar
-                      </button>
-                    </div>
+              <div className="p-5 space-y-4">
+                {evidenceStep.paso_es_critico && (
+                  <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl p-3 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5"/>
+                    <span>Este paso es crítico. Su omisión genera consecuencias según el sistema configurado.</span>
                   </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl py-10 text-sm text-slate-500 hover:text-blue-600 transition-colors">
-                    <ImageIcon className="w-8 h-8"/>
-                    <span>Haz clic para subir o arrastra una imagen</span>
-                    <span className="text-xs text-slate-400">PNG, JPG · máx 4MB</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={e => handleEvidenceUpload(e.target.files?.[0])}/>
-                  </label>
                 )}
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between gap-2 p-5 border-t border-slate-100 flex-shrink-0">
-              <button onClick={() => markError(evidenceModalIdx)} disabled={updatingId === evidenceStep.id} className="text-sm px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4"/>Marcar error
-              </button>
-              <div className="flex items-center gap-2">
-                <button onClick={() => resetStep(evidenceModalIdx)} disabled={updatingId === evidenceStep.id} className="text-sm px-3 py-2 hover:bg-slate-100 text-slate-600 rounded-lg flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4"/>Resetear
+                {evidenceStep.paso_descripcion && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-line">
+                    {evidenceStep.paso_descripcion}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Evidencia (imagen) <span className="text-red-500">*</span></label>
+                  {evidenceStep.evidencia ? (
+                    <div className="space-y-2">
+                      <img src={evidenceStep.evidencia} alt="evidencia" className="w-full max-h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"/>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500 truncate">{evidenceStep.evidencia_nombre}</span>
+                        <button onClick={() => removeEvidence(evidenceModalIdx)} className="text-red-600 hover:underline flex items-center gap-1">
+                          <X className="w-3 h-3"/>Quitar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl py-10 text-sm text-slate-500 hover:text-blue-600 transition-colors">
+                      <ImageIcon className="w-8 h-8"/>
+                      <span>Haz clic para subir o arrastra una imagen</span>
+                      <span className="text-xs text-slate-400">PNG, JPG · máx 4MB</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={e => handleEvidenceUpload(e.target.files?.[0])}/>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 p-5 border-t border-slate-100">
+                <button onClick={() => markError(evidenceModalIdx)} disabled={updatingId === evidenceStep.id} className="text-sm px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4"/>Marcar error
                 </button>
-                <button onClick={() => setEvidenceModalIdx(null)} className="text-sm px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl flex items-center gap-2">
-                  Cerrar
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => resetStep(evidenceModalIdx)} disabled={updatingId === evidenceStep.id} className="text-sm px-3 py-2 hover:bg-slate-100 text-slate-600 rounded-lg flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4"/>Resetear
+                  </button>
+                  <button onClick={() => setEvidenceModalIdx(null)} className="text-sm px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl flex items-center gap-2">
+                    Cerrar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -315,60 +318,63 @@ export default function ExecutionDetail() {
 
       {/* ---------- DETAILS MODAL ---------- */}
       {detailsStep && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setDetailsModalIdx(null)}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-auto flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 flex-shrink-0">
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">Paso {detailsModalIdx + 1} de {steps.length}</p>
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-500"/>Detalles del paso
-                </h3>
+        <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setDetailsModalIdx(null)}>
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"/>
+          <div className="relative min-h-full flex items-center justify-center p-4">
+            <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md my-8">
+              <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Paso {detailsModalIdx + 1} de {steps.length}</p>
+                  <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-slate-500"/>Detalles del paso
+                  </h3>
+                </div>
+                <button onClick={() => setDetailsModalIdx(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
               </div>
-              <button onClick={() => setDetailsModalIdx(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
-            </div>
 
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Nombre</p>
-                <p className="text-sm font-medium text-slate-900">{detailsStep.paso_nombre}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Descripción</p>
-                <p className="text-sm text-slate-700 whitespace-pre-line">{detailsStep.paso_descripcion || <span className="text-slate-400 italic">— sin descripción —</span>}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Puntos</p>
-                  <p className="text-base font-semibold text-slate-900">{detailsStep.paso_puntos}</p>
+              <div className="p-5 space-y-4">
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Nombre</p>
+                  <p className="text-sm font-medium text-slate-900">{detailsStep.paso_nombre}</p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Estado</p>
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS[detailsStep.estado].tag}`}>
-                    <Circle className={`w-2 h-2 fill-current ${STATUS[detailsStep.estado].bar.replace('bg-', 'text-')}`}/>{STATUS[detailsStep.estado].label}
-                  </span>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Descripción</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-line">{detailsStep.paso_descripcion || <span className="text-slate-400 italic">— sin descripción —</span>}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Puntos</p>
+                    <p className="text-base font-semibold text-slate-900">{detailsStep.paso_puntos}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Estado</p>
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS[detailsStep.estado].tag}`}>
+                      <Circle className={`w-2 h-2 fill-current ${STATUS[detailsStep.estado].bar.replace('bg-', 'text-')}`}/>{STATUS[detailsStep.estado].label}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {detailsStep.paso_requiere_evidencia && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                      <Camera className="w-3 h-3"/>Requiere evidencia
+                    </span>
+                  )}
+                  {detailsStep.paso_es_critico && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+                      <AlertTriangle className="w-3 h-3"/>Paso crítico
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex justify-end gap-2 p-5 border-t border-slate-100">
+                <button onClick={() => setDetailsModalIdx(null)} className="text-sm px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg">Cerrar</button>
                 {detailsStep.paso_requiere_evidencia && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                    <Camera className="w-3 h-3"/>Requiere evidencia
-                  </span>
-                )}
-                {detailsStep.paso_es_critico && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
-                    <AlertTriangle className="w-3 h-3"/>Paso crítico
-                  </span>
+                  <button onClick={() => { setDetailsModalIdx(null); setEvidenceModalIdx(detailsModalIdx); }} className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-2">
+                    <Camera className="w-4 h-4"/>Subir evidencia
+                  </button>
                 )}
               </div>
-            </div>
-
-            <div className="flex justify-end gap-2 p-5 border-t border-slate-100 flex-shrink-0">
-              <button onClick={() => setDetailsModalIdx(null)} className="text-sm px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg">Cerrar</button>
-              {detailsStep.paso_requiere_evidencia && (
-                <button onClick={() => { setDetailsModalIdx(null); setEvidenceModalIdx(detailsModalIdx); }} className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-2">
-                  <Camera className="w-4 h-4"/>Subir evidencia
-                </button>
-              )}
             </div>
           </div>
         </div>

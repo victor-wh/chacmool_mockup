@@ -249,7 +249,7 @@ export default function ExecutionDetail() {
       {evidenceStep && (
         <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setEvidenceModalIdx(null)}>
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"/>
-          <div className="relative min-h-full flex items-center justify-center p-4">
+          <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10">
             <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
               <div className="flex items-center justify-between p-5 border-b border-slate-100">
                 <div>
@@ -320,7 +320,7 @@ export default function ExecutionDetail() {
       {detailsStep && (
         <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setDetailsModalIdx(null)}>
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"/>
-          <div className="relative min-h-full flex items-center justify-center p-4">
+          <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10">
             <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md my-8">
               <div className="flex items-center justify-between p-5 border-b border-slate-100">
                 <div>

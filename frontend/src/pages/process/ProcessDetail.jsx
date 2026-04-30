@@ -138,7 +138,7 @@ export default function ProcessDetail() {
       {editingStep && (
         <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setEditingStep(null)}>
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"/>
-          <div className="relative min-h-full flex items-center justify-center p-4">
+          <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10">
             <form onSubmit={saveStep} onClick={e => e.stopPropagation()} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
               <div className="flex items-center justify-between p-5 border-b border-slate-100">
                 <h3 className="font-semibold text-slate-900">{editingStep === 'new' ? 'Nuevo paso' : 'Editar paso'}</h3>

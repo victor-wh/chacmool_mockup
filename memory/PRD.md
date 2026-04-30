@@ -63,12 +63,32 @@ Sistema web de evaluación de empleados basado en la lógica real del cliente Wi
 ## Testing
 - 100% pruebas pasadas (22 funcionalidades verificadas)
 
+## Módulo Process (HR/Operations) — Feb 2026
+
+### Estado: ✅ Implementado y testeado
+Módulo completo para gestionar procesos operacionales con ejecución diaria por empleados.
+
+### Funcionalidades Implementadas ✅
+- [x] Modelos backend (Area, Staff, ProcessType, SystemOfConsequences, Process, ProcessStep, ProcessExecution, StepExecution)
+- [x] Rutas FastAPI `/api/process/*` (types, consequences, processes, steps, executions, stats)
+- [x] Seed script `/app/backend/seed_process.py`
+- [x] 10 Vistas React (ProcessHome, ProcessList, ProcessForm, ProcessDetail, ProcessTypes, ConsequenceSystems, ProcessDashboard, AdminExecutions, ExecutionDetail, MyProcesses, MyExecutions)
+- [x] Sidebar y ruteo integrados en App.js
+- [x] Evidencias guardadas como Base64 en MongoDB
+- [x] Dashboard con Recharts (stats, charts por área, % cumplimiento, pasos omitidos)
+- [x] **(Feb 2026) Fix P0: modales con scroll correcto** — cambio `items-center` → `items-start pt-10 pb-10` en ProcessDetail, ConsequenceSystems, ProcessTypes, ExecutionDetail
+
+### Credenciales de prueba
+- Admin: maria@empresa.com / maria123
+- Empleado: juan@empresa.com / juan123
+- Admin alt.: admin@empresa.com / admin123
+
 ## Backlog
-- [ ] Backend con MongoDB
-- [ ] Autenticación
+- [ ] Refactor: extraer componente genérico `<Modal>` reutilizable
+- [ ] Considerar almacenamiento externo para evidencias Base64 (si crecen)
 - [ ] Carga desde Excel/CSV
 - [ ] Historial de evaluaciones
 
 ---
-*Última actualización: Enero 2026*
-*Basado en: NOTAS JUGADORES.pdf, Evaluacion 360 WispaHub CSV, Pros-RH-20.png*
+*Última actualización: Feb 2026*
+*Basado en: NOTAS JUGADORES.pdf, Evaluacion 360 WispaHub CSV, Pros-RH-20.png, Process module specs*

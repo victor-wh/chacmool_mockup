@@ -1,0 +1,30 @@
+/* CKEditor theme tuning para combinar con Tailwind */
+.ckeditor-wrapper .ck-editor__main > .ck-editor__editable {
+  min-height: 120px;
+  border-radius: 0 0 0.75rem 0.75rem !important;
+  border-color: #e2e8f0 !important;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #0f172a;
+}
+.ckeditor-wrapper .ck.ck-toolbar {
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+.ckeditor-wrapper .ck.ck-editor__editable_inline {
+  padding: 0.75rem 1rem;
+}
+.ckeditor-wrapper .ck-focused {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+/* Contenido renderizado del editor (prose-like) */
+.ck-content-rendered ul { list-style: disc; padding-left: 1.25rem; }
+.ck-content-rendered ol { list-style: decimal; padding-left: 1.25rem; }
+.ck-content-rendered a { color: #2563eb; text-decoration: underline; }
+.ck-content-rendered blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.75rem; color: #475569; }
+.ck-content-rendered h2 { font-size: 1.125rem; font-weight: 600; margin: 0.5rem 0; }
+.ck-content-rendered h3 { font-size: 1rem; font-weight: 600; margin: 0.5rem 0; }
+.ck-content-rendered p { margin: 0.25rem 0; }

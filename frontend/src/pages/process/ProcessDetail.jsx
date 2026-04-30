@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { Loader2, Plus, Pencil, Trash2, ArrowLeft, ExternalLink, ArrowUp, ArrowDown, Save, X, AlertTriangle, Camera } from 'lucide-react';
+import { RichTextEditor } from '../../components/RichTextEditor';
+import { stripHtml } from '../../lib/html';
 
 const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, sistema_consecuencias_id: '' };
 
@@ -75,7 +77,11 @@ export default function ProcessDetail() {
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${proc.activo ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{proc.activo ? 'Activo' : 'Inactivo'}</span>
             </div>
             <h1 className="text-2xl font-semibold text-slate-900" style={{ fontFamily: 'Outfit' }}>{proc.nombre}</h1>
-            <p className="text-sm text-slate-500 mt-1">{proc.descripcion || 'Sin descripción'}</p>
+            {proc.descripcion ? (
+              <div className="ck-content-rendered text-sm text-slate-500 mt-1" dangerouslySetInnerHTML={{ __html: proc.descripcion }}/>
+            ) : (
+              <p className="text-sm text-slate-500 mt-1">Sin descripción</p>
+            )}
             <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
               <span>Área: <strong className="text-slate-700">{proc.area_nombre || '—'}</strong></span>
               {proc.url_referencia && (
@@ -111,7 +117,7 @@ export default function ProcessDetail() {
                 <td className="px-4 py-3 text-center font-semibold text-slate-700">{s.orden}</td>
                 <td className="px-6 py-3">
                   <p className="font-medium text-slate-900">{s.nombre}</p>
-                  {s.descripcion && <p className="text-xs text-slate-500 line-clamp-1 max-w-md">{s.descripcion}</p>}
+                  {s.descripcion && <p className="text-xs text-slate-500 line-clamp-1 max-w-md">{stripHtml(s.descripcion)}</p>}
                 </td>
                 <td className="px-4 py-3 text-center text-sm font-medium text-slate-700">{s.puntos}</td>
                 <td className="px-4 py-3">
@@ -151,7 +157,12 @@ export default function ProcessDetail() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-                  <textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                  <RichTextEditor
+                    testId="step-description-editor"
+                    value={form.descripcion}
+                    onChange={(html) => setForm({ ...form, descripcion: html })}
+                    placeholder="Instrucciones y detalles del paso..."
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

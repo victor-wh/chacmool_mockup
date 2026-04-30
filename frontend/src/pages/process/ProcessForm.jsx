@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { Loader2, Save, ArrowLeft } from 'lucide-react';
+import { RichTextEditor } from '../../components/RichTextEditor';
 
 export default function ProcessForm() {
   const { id } = useParams();
@@ -63,7 +64,12 @@ export default function ProcessForm() {
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-          <textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+          <RichTextEditor
+            testId="process-description-editor"
+            value={form.descripcion}
+            onChange={(html) => setForm({ ...form, descripcion: html })}
+            placeholder="Describe el propósito y alcance del proceso..."
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

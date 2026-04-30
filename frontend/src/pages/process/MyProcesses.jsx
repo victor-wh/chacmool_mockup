@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { Play, FileText, Loader2, ExternalLink, ListChecks } from 'lucide-react';
+import { stripHtml } from '../../lib/html';
 
 export default function MyProcesses() {
   const [processes, setProcesses] = useState([]);
@@ -60,7 +61,7 @@ export default function MyProcesses() {
                 </span>
               </div>
               <h3 className="text-base font-semibold text-slate-900 mb-1">{p.nombre}</h3>
-              <p className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[40px]">{p.descripcion || 'Sin descripción'}</p>
+              <p className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[40px]">{stripHtml(p.descripcion) || 'Sin descripción'}</p>
 
               <div className="flex items-center gap-3 text-xs text-slate-500 mb-4">
                 <span className="flex items-center gap-1"><ListChecks className="w-3.5 h-3.5" />{p.total_pasos} pasos</span>

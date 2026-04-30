@@ -270,9 +270,10 @@ export default function ExecutionDetail() {
                 )}
 
                 {evidenceStep.paso_descripcion && (
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-line">
-                    {evidenceStep.paso_descripcion}
-                  </div>
+                  <div
+                    className="ck-content-rendered bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm text-slate-700"
+                    dangerouslySetInnerHTML={{ __html: evidenceStep.paso_descripcion }}
+                  />
                 )}
 
                 <div>

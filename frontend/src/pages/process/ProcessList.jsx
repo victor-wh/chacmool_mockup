@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { Plus, Eye, Pencil, Trash2, Loader2, FileText, Search } from 'lucide-react';
+import { stripHtml } from '../../lib/html';
 
 export default function ProcessList() {
   const [processes, setProcesses] = useState([]);
@@ -76,7 +77,7 @@ export default function ProcessList() {
                 <td className="px-6 py-3 font-mono text-xs text-slate-500">{p.codigo}</td>
                 <td className="px-6 py-3">
                   <p className="font-medium text-slate-900">{p.nombre}</p>
-                  <p className="text-xs text-slate-400 line-clamp-1 max-w-md">{p.descripcion}</p>
+                  <p className="text-xs text-slate-400 line-clamp-1 max-w-md">{stripHtml(p.descripcion)}</p>
                 </td>
                 <td className="px-6 py-3 text-sm text-slate-600">{p.area_nombre || '—'}</td>
                 <td className="px-6 py-3">

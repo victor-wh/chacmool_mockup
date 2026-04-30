@@ -125,6 +125,7 @@ class ProcessStepBase(BaseModel):
     requiere_evidencia: bool = False
     es_critico: bool = False
     sistema_consecuencias_id: Optional[str] = None
+    staff_asignado_id: Optional[str] = None
 
 
 class ProcessStepCreate(ProcessStepBase):
@@ -139,12 +140,14 @@ class ProcessStepUpdate(BaseModel):
     requiere_evidencia: Optional[bool] = None
     es_critico: Optional[bool] = None
     sistema_consecuencias_id: Optional[str] = None
+    staff_asignado_id: Optional[str] = None
 
 
 class ProcessStep(ProcessStepBase):
     id: str
     proceso_id: str
     sistema_consecuencias_nombre: Optional[str] = ""
+    staff_asignado_nombre: Optional[str] = ""
     created_at: datetime
 
 
@@ -198,6 +201,8 @@ class StepExecution(BaseModel):
     paso_puntos: int
     paso_requiere_evidencia: bool = False
     paso_es_critico: bool = False
+    staff_asignado_id: Optional[str] = None
+    staff_asignado_nombre: Optional[str] = ""
     estado: int = 0  # 0=Pendiente | 1=En progreso | 2=Completado | 3=Error
     evidencia: Optional[str] = None  # base64
     evidencia_nombre: Optional[str] = None

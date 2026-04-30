@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Loader2, Plus, Pencil, Trash2, ArrowLeft, ExternalLink, ArrowUp, ArrowDown, Save, X, AlertTriangle, Camera } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, ArrowLeft, ExternalLink, ArrowUp, ArrowDown, Save, X, AlertTriangle, Camera, User } from 'lucide-react';
 import { RichTextEditor } from '../../components/RichTextEditor';
 import { stripHtml } from '../../lib/html';
 
-const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, sistema_consecuencias_id: '' };
+const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, sistema_consecuencias_id: '', staff_asignado_id: '' };
 
 export default function ProcessDetail() {
   const { id } = useParams();
@@ -13,6 +13,7 @@ export default function ProcessDetail() {
   const [proc, setProc] = useState(null);
   const [steps, setSteps] = useState([]);
   const [consequences, setConsequences] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingStep, setEditingStep] = useState(null);
   const [form, setForm] = useState(defaultStep);
@@ -20,21 +21,30 @@ export default function ProcessDetail() {
 
   const load = useCallback(async () => {
     try {
-      const [p, s, c] = await Promise.all([processAPI.getProcess(id), processAPI.listSteps(id), processAPI.listConsequences()]);
-      setProc(p); setSteps(s); setConsequences(c);
+      const [p, s, c, st] = await Promise.all([
+        processAPI.getProcess(id),
+        processAPI.listSteps(id),
+        processAPI.listConsequences(),
+        processAPI.listStaff().catch(() => []),
+      ]);
+      setProc(p); setSteps(s); setConsequences(c); setStaffList(st);
     } catch (e) { console.error(e); }
     setLoading(false);
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setForm(defaultStep); setEditingStep('new'); };
-  const openEdit = (s) => { setEditingStep(s.id); setForm({ ...s, sistema_consecuencias_id: s.sistema_consecuencias_id || '' }); };
+  const openEdit = (s) => { setEditingStep(s.id); setForm({ ...s, sistema_consecuencias_id: s.sistema_consecuencias_id || '', staff_asignado_id: s.staff_asignado_id || '' }); };
 
   const saveStep = async (e) => {
     e.preventDefault();
     if (!form.nombre.trim()) { alert('El nombre del paso es obligatorio'); return; }
     setSaving(true);
-    const payload = { ...form, sistema_consecuencias_id: form.sistema_consecuencias_id || null };
+    const payload = {
+      ...form,
+      sistema_consecuencias_id: form.sistema_consecuencias_id || null,
+      staff_asignado_id: form.staff_asignado_id || null,
+    };
     try {
       if (editingStep === 'new') await processAPI.createStep(id, payload);
       else await processAPI.updateStep(editingStep, payload);
@@ -118,6 +128,11 @@ export default function ProcessDetail() {
                 <td className="px-6 py-3">
                   <p className="font-medium text-slate-900">{s.nombre}</p>
                   {s.descripcion && <p className="text-xs text-slate-500 line-clamp-1 max-w-md">{stripHtml(s.descripcion)}</p>}
+                  {s.staff_asignado_nombre && (
+                    <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                      <User className="w-3 h-3"/>{s.staff_asignado_nombre}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-center text-sm font-medium text-slate-700">{s.puntos}</td>
                 <td className="px-4 py-3">
@@ -180,6 +195,30 @@ export default function ProcessDetail() {
                     <option value="">— Ninguno —</option>
                     {consequences.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                    <User className="w-4 h-4 text-indigo-600"/>Staff asignado
+                    <span className="text-xs font-normal text-slate-400">(opcional · colaboración)</span>
+                  </label>
+                  <select
+                    data-testid="step-staff-select"
+                    value={form.staff_asignado_id}
+                    onChange={e => setForm({ ...form, staff_asignado_id: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">— Sin asignación específica —</option>
+                    {staffList.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.user_name || s.user_email}{s.area_nombre ? ` · ${s.area_nombre}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {form.staff_asignado_id && (
+                    <p className="text-xs text-indigo-600 mt-1">
+                      Solo este colaborador podrá completar este paso durante la ejecución.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer">

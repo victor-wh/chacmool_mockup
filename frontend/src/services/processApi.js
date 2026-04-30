@@ -88,4 +88,7 @@ export const processAPI = {
 
   // Stats
   getStats: () => api('/api/process/stats'),
+
+  // ---------- My Assigned Steps (colaboración) ----------
+  getMyAssignedSteps: () => api('/api/process/my-assigned-steps'),
 };

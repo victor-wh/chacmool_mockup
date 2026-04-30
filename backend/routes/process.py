@@ -334,6 +334,11 @@ async def _enrich_step(s: dict) -> dict:
     if s.get("sistema_consecuencias_id"):
         sc = await db.process_consequences.find_one({"id": s["sistema_consecuencias_id"]}, {"_id": 0})
         s["sistema_consecuencias_nombre"] = (sc or {}).get("nombre", "")
+    if s.get("staff_asignado_id"):
+        sa = await db.process_staff.find_one({"id": s["staff_asignado_id"]}, {"_id": 0})
+        s["staff_asignado_nombre"] = (sa or {}).get("user_name", "")
+    else:
+        s["staff_asignado_nombre"] = ""
     return s
 
 
@@ -364,6 +369,8 @@ async def create_step(process_id: str, payload: ProcessStepCreate, current_user:
         "es_critico": payload.es_critico,
         "sistema_consecuencias_id": payload.sistema_consecuencias_id,
         "sistema_consecuencias_nombre": "",
+        "staff_asignado_id": payload.staff_asignado_id or None,
+        "staff_asignado_nombre": "",
         "created_at": _now(),
     }
     await db.process_steps.insert_one(new_s)
@@ -379,7 +386,10 @@ async def create_step(process_id: str, payload: ProcessStepCreate, current_user:
 
 @router.put("/steps/{step_id}", response_model=ProcessStep)
 async def update_step(step_id: str, payload: ProcessStepUpdate, current_user: dict = Depends(require_admin)):
-    update_data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None}
+    raw = payload.dict(exclude_unset=True)
+    # Allow explicit None (null) for nullable FK fields so admin can unassign them
+    nullable_fields = {"staff_asignado_id", "sistema_consecuencias_id"}
+    update_data = {k: v for k, v in raw.items() if v is not None or k in nullable_fields}
     res = await db.process_steps.update_one({"id": step_id}, {"$set": update_data})
     if res.matched_count == 0:
         raise HTTPException(404, "Step not found")
@@ -511,6 +521,10 @@ async def create_execution(
     steps = await db.process_steps.find({"proceso_id": proc["id"]}, {"_id": 0}).sort("orden", 1).to_list(500)
     step_execs = []
     for s in steps:
+        staff_asig_nombre = ""
+        if s.get("staff_asignado_id"):
+            sa = await db.process_staff.find_one({"id": s["staff_asignado_id"]}, {"_id": 0})
+            staff_asig_nombre = (sa or {}).get("user_name", "")
         step_execs.append({
             "id": str(uuid4()),
             "ejecucion_id": new_exec["id"],
@@ -521,6 +535,8 @@ async def create_execution(
             "paso_puntos": s.get("puntos", 1),
             "paso_requiere_evidencia": s.get("requiere_evidencia", False),
             "paso_es_critico": s.get("es_critico", False),
+            "staff_asignado_id": s.get("staff_asignado_id") or None,
+            "staff_asignado_nombre": staff_asig_nombre,
             "estado": 0,
             "evidencia": None,
             "evidencia_nombre": None,
@@ -550,12 +566,22 @@ async def update_step_execution(
     if not step_exec:
         raise HTTPException(404, "Step execution not found")
 
-    # validate user owns the execution (or admin)
-    exe = await db.process_executions.find_one({"id": step_exec["ejecucion_id"]}, {"_id": 0})
-    if exe and not _is_admin(current_user):
+    # Authorization:
+    # - admin: siempre permitido
+    # - si el paso tiene staff_asignado_id, SOLO ese staff puede actualizarlo
+    # - en caso contrario, solo el owner de la ejecución
+    if not _is_admin(current_user):
         staff = await _ensure_staff_for_user(current_user)
-        if exe["staff_id"] != staff["id"]:
-            raise HTTPException(403, "Not allowed to update this step execution")
+        if step_exec.get("staff_asignado_id"):
+            if step_exec["staff_asignado_id"] != staff["id"]:
+                raise HTTPException(
+                    403,
+                    f"Este paso está asignado a {step_exec.get('staff_asignado_nombre') or 'otro colaborador'} y solo esa persona puede completarlo.",
+                )
+        else:
+            exe = await db.process_executions.find_one({"id": step_exec["ejecucion_id"]}, {"_id": 0})
+            if exe and exe["staff_id"] != staff["id"]:
+                raise HTTPException(403, "Not allowed to update this step execution")
 
     update_data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None}
     update_data["fecha_actualizacion"] = _now()
@@ -565,6 +591,61 @@ async def update_step_execution(
     await _refresh_execution_progress(step_exec["ejecucion_id"])
 
     return await db.process_step_executions.find_one({"id": step_exec_id}, {"_id": 0})
+
+
+@router.get("/my-assigned-steps")
+async def list_my_assigned_steps(current_user: dict = Depends(get_current_active_user)):
+    """
+    Pasos asignados al staff logueado que están pendientes en ejecuciones activas.
+    Usado para que un colaborador vea los pasos específicos que debe completar
+    dentro de ejecuciones iniciadas por otros staff.
+    """
+    staff = await _ensure_staff_for_user(current_user)
+    # step executions pendientes asignados a mí
+    step_execs = await db.process_step_executions.find(
+        {"staff_asignado_id": staff["id"], "estado": {"$in": [0, 1]}},
+        {"_id": 0},
+    ).sort("fecha_actualizacion", -1).to_list(500)
+
+    # agrupa por ejecución y enriquece con datos de la ejecución
+    exe_ids = list({se["ejecucion_id"] for se in step_execs})
+    execs_map = {}
+    if exe_ids:
+        execs = await db.process_executions.find(
+            {"id": {"$in": exe_ids}, "estado": "en_progreso"},
+            {"_id": 0},
+        ).to_list(500)
+        execs_map = {e["id"]: e for e in execs}
+
+    # filtra a solo ejecuciones en progreso y excluye las iniciadas por el mismo staff
+    result = []
+    for se in step_execs:
+        exe = execs_map.get(se["ejecucion_id"])
+        if not exe:
+            continue
+        if exe.get("staff_id") == staff["id"]:
+            # Es mi propia ejecución: no aparece en la bandeja de colaboración
+            continue
+        result.append({
+            "step_execution_id": se["id"],
+            "ejecucion_id": exe["id"],
+            "codigo_ejecucion": exe.get("codigo_ejecucion", ""),
+            "proceso_nombre": exe.get("proceso_nombre", ""),
+            "proceso_codigo": exe.get("proceso_codigo", ""),
+            "tipo_nombre": exe.get("tipo_nombre", ""),
+            "tipo_color_fondo": exe.get("tipo_color_fondo", "#3B82F6"),
+            "tipo_color_texto": exe.get("tipo_color_texto", "#FFFFFF"),
+            "iniciado_por": exe.get("staff_user_name", ""),
+            "fecha": exe.get("fecha", ""),
+            "hora_inicio": exe.get("hora_inicio", ""),
+            "paso_id": se.get("paso_id"),
+            "paso_nombre": se.get("paso_nombre", ""),
+            "paso_orden": se.get("paso_orden", 0),
+            "paso_requiere_evidencia": se.get("paso_requiere_evidencia", False),
+            "paso_es_critico": se.get("paso_es_critico", False),
+            "estado": se.get("estado", 0),
+        })
+    return result
 
 
 @router.delete("/executions/{execution_id}")

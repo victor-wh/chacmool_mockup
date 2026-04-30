@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import {
   Loader2, Camera, CheckCircle2, AlertTriangle, X, ArrowLeft,
-  Image as ImageIcon, Info, Send, RotateCcw, Circle, Check, FileText
+  Image as ImageIcon, Info, Send, RotateCcw, Circle, Check, FileText, Lock, User
 } from 'lucide-react';
 
 const STATUS = {
@@ -18,6 +18,7 @@ export default function ExecutionDetail() {
   const navigate = useNavigate();
   const [execution, setExecution] = useState(null);
   const [steps, setSteps] = useState([]);
+  const [myStaffId, setMyStaffId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [evidenceModalIdx, setEvidenceModalIdx] = useState(null);  // index del paso para evidencia
   const [detailsModalIdx, setDetailsModalIdx] = useState(null);    // index del paso para ver detalles
@@ -25,12 +26,14 @@ export default function ExecutionDetail() {
 
   const load = useCallback(async () => {
     try {
-      const [exe, st] = await Promise.all([
+      const [exe, st, me] = await Promise.all([
         processAPI.getExecution(id),
         processAPI.listStepExecutions(id),
+        processAPI.getMyStaff().catch(() => null),
       ]);
       setExecution(exe);
       setSteps(st);
+      setMyStaffId(me?.id || null);
     } catch (e) { console.error(e); }
     setLoading(false);
   }, [id]);
@@ -56,10 +59,19 @@ export default function ExecutionDetail() {
     }
   };
 
+  const isStepLocked = (s) => {
+    // un paso está bloqueado para el usuario actual si tiene staff_asignado_id distinto al suyo
+    return Boolean(s?.staff_asignado_id) && s.staff_asignado_id !== myStaffId;
+  };
+
   // Click sobre un paso: si requiere evidencia abrir modal, sino toggle estado
   const handleStepClick = (idx) => {
     const s = steps[idx];
     if (!s) return;
+    if (isStepLocked(s)) {
+      alert(`Este paso está asignado a ${s.staff_asignado_nombre || 'otro colaborador'}. Solo esa persona puede completarlo.`);
+      return;
+    }
     if (s.paso_requiere_evidencia) {
       setEvidenceModalIdx(idx);
     } else {
@@ -157,18 +169,25 @@ export default function ExecutionDetail() {
           {steps.map((s, i) => {
             const st = STATUS[s.estado];
             const isUpdating = updatingId === s.id;
+            const locked = isStepLocked(s);
             return (
-              <li key={s.id} className="group hover:bg-slate-50 transition-colors">
+              <li key={s.id} className={`group transition-colors ${locked ? 'bg-indigo-50/40' : 'hover:bg-slate-50'}`}>
                 <div className="flex items-center gap-4 px-6 py-4">
                   {/* check icon (clickable) */}
                   <button
                     onClick={() => handleStepClick(i)}
-                    disabled={isUpdating}
-                    className="flex-shrink-0"
-                    title={s.paso_requiere_evidencia ? 'Subir evidencia' : (s.estado === 2 ? 'Marcar pendiente' : 'Marcar completado')}
+                    disabled={isUpdating || locked}
+                    className="flex-shrink-0 disabled:cursor-not-allowed"
+                    title={locked
+                      ? `Asignado a ${s.staff_asignado_nombre}`
+                      : s.paso_requiere_evidencia ? 'Subir evidencia' : (s.estado === 2 ? 'Marcar pendiente' : 'Marcar completado')}
                   >
                     {isUpdating ? (
                       <Loader2 className="w-7 h-7 text-slate-400 animate-spin"/>
+                    ) : locked ? (
+                      <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <Lock className="w-3.5 h-3.5"/>
+                      </div>
                     ) : s.estado === 2 ? (
                       <div className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-colors">
                         <Check className="w-4 h-4"/>
@@ -189,8 +208,8 @@ export default function ExecutionDetail() {
                   </button>
 
                   {/* clickable name area */}
-                  <button onClick={() => handleStepClick(i)} disabled={isUpdating} className="flex-1 text-left min-w-0">
-                    <p className={`text-sm font-medium ${s.estado === 2 ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                  <button onClick={() => handleStepClick(i)} disabled={isUpdating || locked} className="flex-1 text-left min-w-0 disabled:cursor-not-allowed">
+                    <p className={`text-sm font-medium ${s.estado === 2 ? 'text-slate-500 line-through' : locked ? 'text-slate-600' : 'text-slate-900'}`}>
                       {s.paso_nombre}
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -203,6 +222,11 @@ export default function ExecutionDetail() {
                       {s.paso_es_critico && (
                         <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">
                           <AlertTriangle className="w-3 h-3"/>Crítico
+                        </span>
+                      )}
+                      {s.staff_asignado_nombre && (
+                        <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${locked ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                          <User className="w-3 h-3"/>{locked ? `Asignado a ${s.staff_asignado_nombre}` : `Tú · ${s.staff_asignado_nombre}`}
                         </span>
                       )}
                       {s.evidencia && (

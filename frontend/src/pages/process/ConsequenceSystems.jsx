@@ -81,13 +81,13 @@ export default function ConsequenceSystems() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
-          <form onSubmit={save} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setEditing(null)}>
+          <form onSubmit={save} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-auto flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 flex-shrink-0">
               <h3 className="font-semibold text-slate-900">{editing === 'new' ? 'Nuevo sistema' : 'Editar sistema'}</h3>
               <button type="button" onClick={() => setEditing(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                 <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
@@ -99,7 +99,7 @@ export default function ConsequenceSystems() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-slate-100">
+            <div className="flex justify-end gap-2 p-5 border-t border-slate-100 flex-shrink-0">
               <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
               <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2"><Save className="w-4 h-4"/>Guardar</button>
             </div>

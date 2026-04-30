@@ -10,6 +10,17 @@ import KPIsView from './pages/KPIsView';
 import Evaluations360View from './pages/Evaluations360View';
 import PDIView from './pages/PDIView';
 import EmployeeProfile from './pages/EmployeeProfile';
+import ProcessHome from './pages/process/ProcessHome';
+import MyProcesses from './pages/process/MyProcesses';
+import MyExecutions from './pages/process/MyExecutions';
+import ExecutionDetail from './pages/process/ExecutionDetail';
+import ProcessList from './pages/process/ProcessList';
+import ProcessForm from './pages/process/ProcessForm';
+import ProcessDetail from './pages/process/ProcessDetail';
+import ProcessTypes from './pages/process/ProcessTypes';
+import ConsequenceSystems from './pages/process/ConsequenceSystems';
+import ProcessDashboard from './pages/process/ProcessDashboard';
+import AdminExecutions from './pages/process/AdminExecutions';
 import { 
   Users, 
   Target, 
@@ -18,6 +29,8 @@ import {
   Grid3X3, 
   ClipboardEdit,
   ChevronRight,
+  PlayCircle,
+  Workflow,
   TrendingUp,
   Award,
   BarChart3,
@@ -986,6 +999,14 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/pdi", icon: Target, label: "PDI", description: "Plan de Desarrollo", roles: ['admin'] },
     { path: "/aciertos-desaciertos", icon: ClipboardList, label: "Aciertos y Desaciertos", description: "Evaluación bilateral", roles: ['admin'] },
     { path: "/kpis", icon: Target, label: "KPIs", description: "Indicadores clave", roles: ['admin'] },
+    // PROCESS MODULE
+    { path: "/process/my", icon: PlayCircle, label: "Mis Procesos", description: "Procesos disponibles", roles: ['admin', 'empleado', 'manager'] },
+    { path: "/process/my-executions", icon: ClipboardList, label: "Mis Ejecuciones", description: "Historial personal", roles: ['admin', 'empleado', 'manager'] },
+    { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
+    { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
+    { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
+    { path: "/process/admin/types", icon: Sliders, label: "Tipos de Proceso", description: "Categorías y colores", roles: ['admin'] },
+    { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'] },
   ];
   
   // Filtrar navItems basado en el rol del usuario
@@ -1500,6 +1521,19 @@ const AppContent = () => {
             <Route path="/my-profile" element={<MyProfileResultsView isAdmin={isAdmin} />} />
             <Route path="/manual-eval" element={<ManualEvaluation />} />
             <Route path="/perfil/:employeeId" element={<EmployeeProfile />} />
+            {/* PROCESS MODULE */}
+            <Route path="/process" element={<ProcessHome />} />
+            <Route path="/process/my" element={<MyProcesses />} />
+            <Route path="/process/my-executions" element={<MyExecutions />} />
+            <Route path="/process/execution/:id" element={<ExecutionDetail />} />
+            <Route path="/process/admin/processes" element={<ProcessList />} />
+            <Route path="/process/admin/processes/new" element={<ProcessForm />} />
+            <Route path="/process/admin/processes/:id" element={<ProcessDetail />} />
+            <Route path="/process/admin/processes/:id/edit" element={<ProcessForm />} />
+            <Route path="/process/admin/types" element={<ProcessTypes />} />
+            <Route path="/process/admin/consequences" element={<ConsequenceSystems />} />
+            <Route path="/process/admin/dashboard" element={<ProcessDashboard />} />
+            <Route path="/process/admin/executions" element={<AdminExecutions />} />
           </Routes>
         </Layout>
       } />

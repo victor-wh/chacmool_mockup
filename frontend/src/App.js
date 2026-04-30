@@ -17,6 +17,7 @@ import ExecutionDetail from './pages/process/ExecutionDetail';
 import ProcessList from './pages/process/ProcessList';
 import ProcessForm from './pages/process/ProcessForm';
 import ProcessDetail from './pages/process/ProcessDetail';
+import ProcessInfo from './pages/process/ProcessInfo';
 import ProcessTypes from './pages/process/ProcessTypes';
 import ConsequenceSystems from './pages/process/ConsequenceSystems';
 import ProcessDashboard from './pages/process/ProcessDashboard';
@@ -1529,6 +1530,7 @@ const AppContent = () => {
             <Route path="/process/admin/processes" element={<ProcessList />} />
             <Route path="/process/admin/processes/new" element={<ProcessForm />} />
             <Route path="/process/admin/processes/:id" element={<ProcessDetail />} />
+            <Route path="/process/admin/processes/:id/info" element={<ProcessInfo />} />
             <Route path="/process/admin/processes/:id/edit" element={<ProcessForm />} />
             <Route path="/process/admin/types" element={<ProcessTypes />} />
             <Route path="/process/admin/consequences" element={<ConsequenceSystems />} />

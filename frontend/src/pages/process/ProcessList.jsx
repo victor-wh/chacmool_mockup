@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Plus, Eye, Pencil, Trash2, Loader2, FileText, Search } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Loader2, FileText, Search, Info } from 'lucide-react';
 import { stripHtml } from '../../lib/html';
 
 export default function ProcessList() {
@@ -92,6 +92,7 @@ export default function ProcessList() {
                 </td>
                 <td className="px-6 py-3">
                   <div className="flex justify-end gap-1">
+                    <button onClick={() => navigate(`/process/admin/processes/${p.id}/info`)} title="Resumen" data-testid={`process-info-btn-${p.id}`} className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600"><Info className="w-4 h-4"/></button>
                     <button onClick={() => navigate(`/process/admin/processes/${p.id}`)} title="Ver" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Eye className="w-4 h-4"/></button>
                     <button onClick={() => navigate(`/process/admin/processes/${p.id}/edit`)} title="Editar" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Pencil className="w-4 h-4"/></button>
                     <button onClick={() => handleDelete(p.id, p.nombre)} title="Eliminar" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4"/></button>

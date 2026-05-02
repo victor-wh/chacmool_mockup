@@ -89,6 +89,7 @@ class ProcessBase(BaseModel):
     url_referencia: Optional[str] = ""
     area_id: Optional[str] = None
     tipo_id: Optional[str] = None
+    sistema_consecuencias_id: Optional[str] = None
     activo: bool = True
 
 
@@ -102,6 +103,7 @@ class ProcessUpdate(BaseModel):
     url_referencia: Optional[str] = None
     area_id: Optional[str] = None
     tipo_id: Optional[str] = None
+    sistema_consecuencias_id: Optional[str] = None
     activo: Optional[bool] = None
 
 
@@ -112,6 +114,7 @@ class Process(ProcessBase):
     tipo_nombre: Optional[str] = ""
     tipo_color_fondo: Optional[str] = "#3B82F6"
     tipo_color_texto: Optional[str] = "#FFFFFF"
+    sistema_consecuencias_nombre: Optional[str] = ""
     total_pasos: int = 0
     created_at: datetime
 
@@ -124,7 +127,6 @@ class ProcessStepBase(BaseModel):
     puntos: int = 1
     requiere_evidencia: bool = False
     es_critico: bool = False
-    sistema_consecuencias_id: Optional[str] = None
     staff_asignado_id: Optional[str] = None
 
 
@@ -139,14 +141,12 @@ class ProcessStepUpdate(BaseModel):
     puntos: Optional[int] = None
     requiere_evidencia: Optional[bool] = None
     es_critico: Optional[bool] = None
-    sistema_consecuencias_id: Optional[str] = None
     staff_asignado_id: Optional[str] = None
 
 
 class ProcessStep(ProcessStepBase):
     id: str
     proceso_id: str
-    sistema_consecuencias_nombre: Optional[str] = ""
     staff_asignado_nombre: Optional[str] = ""
     created_at: datetime
 

@@ -5,14 +5,13 @@ import { Loader2, Plus, Pencil, Trash2, ArrowLeft, ExternalLink, ArrowUp, ArrowD
 import { RichTextEditor } from '../../components/RichTextEditor';
 import { stripHtml } from '../../lib/html';
 
-const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, sistema_consecuencias_id: '', staff_asignado_id: '' };
+const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, staff_asignado_id: '' };
 
 export default function ProcessDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [proc, setProc] = useState(null);
   const [steps, setSteps] = useState([]);
-  const [consequences, setConsequences] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingStep, setEditingStep] = useState(null);
@@ -21,20 +20,19 @@ export default function ProcessDetail() {
 
   const load = useCallback(async () => {
     try {
-      const [p, s, c, st] = await Promise.all([
+      const [p, s, st] = await Promise.all([
         processAPI.getProcess(id),
         processAPI.listSteps(id),
-        processAPI.listConsequences(),
         processAPI.listStaff().catch(() => []),
       ]);
-      setProc(p); setSteps(s); setConsequences(c); setStaffList(st);
+      setProc(p); setSteps(s); setStaffList(st);
     } catch (e) { console.error(e); }
     setLoading(false);
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setForm(defaultStep); setEditingStep('new'); };
-  const openEdit = (s) => { setEditingStep(s.id); setForm({ ...s, sistema_consecuencias_id: s.sistema_consecuencias_id || '', staff_asignado_id: s.staff_asignado_id || '' }); };
+  const openEdit = (s) => { setEditingStep(s.id); setForm({ ...s, staff_asignado_id: s.staff_asignado_id || '' }); };
 
   const saveStep = async (e) => {
     e.preventDefault();
@@ -42,7 +40,6 @@ export default function ProcessDetail() {
     setSaving(true);
     const payload = {
       ...form,
-      sistema_consecuencias_id: form.sistema_consecuencias_id || null,
       staff_asignado_id: form.staff_asignado_id || null,
     };
     try {
@@ -116,12 +113,11 @@ export default function ProcessDetail() {
               <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Nombre</th>
               <th className="text-center text-xs font-semibold text-slate-500 uppercase px-4 py-3">Pts</th>
               <th className="text-center text-xs font-semibold text-slate-500 uppercase px-4 py-3">Flags</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Consecuencias</th>
               <th className="text-right text-xs font-semibold text-slate-500 uppercase px-6 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {steps.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-slate-400">Sin pasos. Agrega el primero.</td></tr>}
+            {steps.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-slate-400">Sin pasos. Agrega el primero.</td></tr>}
             {steps.map((s, idx) => (
               <tr key={s.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-center font-semibold text-slate-700">{s.orden}</td>
@@ -141,7 +137,6 @@ export default function ProcessDetail() {
                     {s.es_critico && <span title="Crítico" className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-50 text-red-700"><AlertTriangle className="w-3 h-3"/>Crít.</span>}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-500">{s.sistema_consecuencias_nombre || '—'}</td>
                 <td className="px-6 py-3">
                   <div className="flex justify-end gap-1">
                     <button onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1.5 hover:bg-slate-100 disabled:opacity-30 rounded"><ArrowUp className="w-4 h-4"/></button>
@@ -188,13 +183,6 @@ export default function ProcessDetail() {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Puntos</label>
                     <input type="number" min="0" value={form.puntos} onChange={e => setForm({ ...form, puntos: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Sistema de consecuencias</label>
-                  <select value={form.sistema_consecuencias_id} onChange={e => setForm({ ...form, sistema_consecuencias_id: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
-                    <option value="">— Ninguno —</option>
-                    {consequences.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">

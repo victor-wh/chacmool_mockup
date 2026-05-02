@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import {
   Loader2, ArrowLeft, ExternalLink, Camera, AlertTriangle,
-  FileText, ListChecks, Info, Award, Hash
+  FileText, ListChecks, Info, Award, Hash, User
 } from 'lucide-react';
 
 export default function ProcessInfo() {
@@ -33,7 +33,6 @@ export default function ProcessInfo() {
       setLoading(false);
     })();
   }, [id]);
-
   if (loading) return (
     <div className="flex items-center gap-2 text-slate-500" data-testid="process-info-loading">
       <Loader2 className="w-4 h-4 animate-spin"/>Cargando resumen...
@@ -47,6 +46,7 @@ export default function ProcessInfo() {
   const totalPuntos = steps.reduce((sum, s) => sum + (s.puntos || 0), 0);
   const criticosCount = steps.filter(s => s.es_critico).length;
   const evidenciaCount = steps.filter(s => s.requiere_evidencia).length;
+  const processConsequence = proc.sistema_consecuencias_id ? consequencesMap[proc.sistema_consecuencias_id] : null;
 
   return (
     <div className="animate-fade-in max-w-4xl" data-testid="process-info-page">
@@ -117,6 +117,28 @@ export default function ProcessInfo() {
         <StatCard icon={<AlertTriangle className="w-4 h-4"/>} label="Críticos" value={criticosCount} color="red"/>
       </div>
 
+      {/* Process-level consequence system */}
+      {processConsequence && (
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 mb-6" data-testid="process-info-consequences">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5"/>
+            </div>
+            <div className="flex-1">
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-amber-700 mb-1">Sistema de consecuencias del proceso</p>
+              <p className="text-base font-semibold text-slate-900 mb-2">{processConsequence.nombre}</p>
+              <p className="text-xs text-slate-500 mb-3">Se aplica cuando se omite cualquier paso del proceso.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-700">
+                {processConsequence.omision_nivel_1 && <ConsequenceRow n={1} text={processConsequence.omision_nivel_1}/>}
+                {processConsequence.omision_nivel_2 && <ConsequenceRow n={2} text={processConsequence.omision_nivel_2}/>}
+                {processConsequence.omision_nivel_3 && <ConsequenceRow n={3} text={processConsequence.omision_nivel_3}/>}
+                {processConsequence.omision_nivel_4 && <ConsequenceRow n={4} text={processConsequence.omision_nivel_4}/>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Steps list */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
@@ -132,7 +154,6 @@ export default function ProcessInfo() {
         ) : (
           <ol className="divide-y divide-slate-100" data-testid="process-info-steps-list">
             {steps.map((s, i) => {
-              const cs = s.sistema_consecuencias_id ? consequencesMap[s.sistema_consecuencias_id] : null;
               return (
                 <li key={s.id} className="px-6 py-5" data-testid={`process-info-step-${i}`}>
                   <div className="flex items-start gap-4">
@@ -171,21 +192,6 @@ export default function ProcessInfo() {
                         />
                       ) : (
                         <p className="text-sm text-slate-400 italic mt-2">— sin descripción —</p>
-                      )}
-
-                      {cs && (
-                        <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                          <p className="text-[11px] uppercase tracking-wider font-semibold text-amber-700 mb-1 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3"/>Sistema de consecuencias
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">{cs.nombre}</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-xs text-slate-600">
-                            {cs.omision_nivel_1 && <ConsequenceRow n={1} text={cs.omision_nivel_1}/>}
-                            {cs.omision_nivel_2 && <ConsequenceRow n={2} text={cs.omision_nivel_2}/>}
-                            {cs.omision_nivel_3 && <ConsequenceRow n={3} text={cs.omision_nivel_3}/>}
-                            {cs.omision_nivel_4 && <ConsequenceRow n={4} text={cs.omision_nivel_4}/>}
-                          </div>
-                        </div>
                       )}
                     </div>
                   </div>

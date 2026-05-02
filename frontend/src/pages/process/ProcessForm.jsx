@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Loader2, Save, ArrowLeft } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { RichTextEditor } from '../../components/RichTextEditor';
 
 export default function ProcessForm() {
@@ -10,18 +10,31 @@ export default function ProcessForm() {
   const navigate = useNavigate();
   const [areas, setAreas] = useState([]);
   const [types, setTypes] = useState([]);
-  const [form, setForm] = useState({ nombre: '', descripcion: '', url_referencia: '', area_id: '', tipo_id: '', activo: true });
+  const [consequences, setConsequences] = useState([]);
+  const [form, setForm] = useState({ nombre: '', descripcion: '', url_referencia: '', area_id: '', tipo_id: '', sistema_consecuencias_id: '', activo: true });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [a, t] = await Promise.all([processAPI.listAreas(), processAPI.listTypes()]);
-        setAreas(a); setTypes(t);
+        const [a, t, c] = await Promise.all([
+          processAPI.listAreas(),
+          processAPI.listTypes(),
+          processAPI.listConsequences(),
+        ]);
+        setAreas(a); setTypes(t); setConsequences(c);
         if (isEdit) {
           const p = await processAPI.getProcess(id);
-          setForm({ nombre: p.nombre, descripcion: p.descripcion || '', url_referencia: p.url_referencia || '', area_id: p.area_id || '', tipo_id: p.tipo_id || '', activo: p.activo });
+          setForm({
+            nombre: p.nombre,
+            descripcion: p.descripcion || '',
+            url_referencia: p.url_referencia || '',
+            area_id: p.area_id || '',
+            tipo_id: p.tipo_id || '',
+            sistema_consecuencias_id: p.sistema_consecuencias_id || '',
+            activo: p.activo,
+          });
         }
       } catch (e) { console.error(e); }
       setLoading(false);
@@ -33,7 +46,12 @@ export default function ProcessForm() {
     if (!form.nombre.trim()) { alert('El nombre es obligatorio'); return; }
     setSaving(true);
     try {
-      const payload = { ...form, area_id: form.area_id || null, tipo_id: form.tipo_id || null };
+      const payload = {
+        ...form,
+        area_id: form.area_id || null,
+        tipo_id: form.tipo_id || null,
+        sistema_consecuencias_id: form.sistema_consecuencias_id || null,
+      };
       if (isEdit) {
         await processAPI.updateProcess(id, payload);
         navigate(`/process/admin/processes/${id}`);
@@ -90,6 +108,24 @@ export default function ProcessForm() {
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">URL de referencia</label>
           <input value={form.url_referencia} onChange={e => setForm({ ...form, url_referencia: e.target.value })} placeholder="https://wiki.empresa.com/..." className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500"/>Sistema de consecuencias
+            <span className="text-xs font-normal text-slate-400">(opcional · aplica a todo el proceso)</span>
+          </label>
+          <select
+            data-testid="process-consequence-select"
+            value={form.sistema_consecuencias_id}
+            onChange={e => setForm({ ...form, sistema_consecuencias_id: e.target.value })}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+          >
+            <option value="">— Ninguno —</option>
+            {consequences.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            Se aplicará automáticamente a todos los pasos del proceso cuando se omitan.
+          </p>
         </div>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={form.activo} onChange={e => setForm({ ...form, activo: e.target.checked })} className="rounded"/>

@@ -238,6 +238,11 @@ async def _enrich_process(p: dict) -> dict:
             p["tipo_nombre"] = t.get("nombre", "")
             p["tipo_color_fondo"] = t.get("color_fondo", "#3B82F6")
             p["tipo_color_texto"] = t.get("color_texto", "#FFFFFF")
+    if p.get("sistema_consecuencias_id"):
+        sc = await db.process_consequences.find_one({"id": p["sistema_consecuencias_id"]}, {"_id": 0})
+        p["sistema_consecuencias_nombre"] = (sc or {}).get("nombre", "")
+    else:
+        p["sistema_consecuencias_nombre"] = ""
     p["total_pasos"] = await db.process_steps.count_documents({"proceso_id": p["id"]})
     return p
 
@@ -294,11 +299,13 @@ async def create_process(payload: ProcessCreate, current_user: dict = Depends(re
         "url_referencia": payload.url_referencia or "",
         "area_id": payload.area_id,
         "tipo_id": payload.tipo_id,
+        "sistema_consecuencias_id": payload.sistema_consecuencias_id,
         "activo": payload.activo,
         "area_nombre": "",
         "tipo_nombre": "",
         "tipo_color_fondo": "#3B82F6",
         "tipo_color_texto": "#FFFFFF",
+        "sistema_consecuencias_nombre": "",
         "total_pasos": 0,
         "created_at": _now(),
     }
@@ -310,7 +317,9 @@ async def create_process(payload: ProcessCreate, current_user: dict = Depends(re
 
 @router.put("/processes/{process_id}", response_model=Process)
 async def update_process(process_id: str, payload: ProcessUpdate, current_user: dict = Depends(require_admin)):
-    update_data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None}
+    raw = payload.dict(exclude_unset=True)
+    nullable_fields = {"sistema_consecuencias_id", "area_id", "tipo_id"}
+    update_data = {k: v for k, v in raw.items() if v is not None or k in nullable_fields}
     res = await db.process_definitions.update_one({"id": process_id}, {"$set": update_data})
     if res.matched_count == 0:
         raise HTTPException(404, "Process not found")
@@ -367,8 +376,6 @@ async def create_step(process_id: str, payload: ProcessStepCreate, current_user:
         "puntos": payload.puntos,
         "requiere_evidencia": payload.requiere_evidencia,
         "es_critico": payload.es_critico,
-        "sistema_consecuencias_id": payload.sistema_consecuencias_id,
-        "sistema_consecuencias_nombre": "",
         "staff_asignado_id": payload.staff_asignado_id or None,
         "staff_asignado_nombre": "",
         "created_at": _now(),

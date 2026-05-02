@@ -12,6 +12,7 @@ import PDIView from './pages/PDIView';
 import EmployeeProfile from './pages/EmployeeProfile';
 import ProcessHome from './pages/process/ProcessHome';
 import MyProcesses from './pages/process/MyProcesses';
+import AllProcesses from './pages/process/AllProcesses';
 import MyAssignedSteps from './pages/process/MyAssignedSteps';
 import MyExecutions from './pages/process/MyExecutions';
 import ExecutionDetail from './pages/process/ExecutionDetail';
@@ -67,6 +68,7 @@ import {
   Edit3,
   Share2,
   UserCheck,
+  FolderOpen,
   Briefcase,
   Users2,
   Star,
@@ -1005,6 +1007,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/my", icon: PlayCircle, label: "Mis Procesos", description: "Procesos disponibles", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/my-assigned-steps", icon: UserCheck, label: "Pasos asignados a mí", description: "Colaboración entre áreas", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/my-executions", icon: ClipboardList, label: "Mis Ejecuciones", description: "Historial personal", roles: ['admin', 'empleado', 'manager'] },
+    { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
     { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
     { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
@@ -1529,6 +1532,7 @@ const AppContent = () => {
             <Route path="/process/my" element={<MyProcesses />} />
             <Route path="/process/my-assigned-steps" element={<MyAssignedSteps />} />
             <Route path="/process/my-executions" element={<MyExecutions />} />
+            <Route path="/process/all" element={<AllProcesses />} />
             <Route path="/process/execution/:id" element={<ExecutionDetail />} />
             <Route path="/process/admin/processes" element={<ProcessList />} />
             <Route path="/process/admin/processes/new" element={<ProcessForm />} />

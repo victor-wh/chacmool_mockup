@@ -1,14 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Play, FileText, Loader2, ExternalLink, ListChecks, UserCheck, AlertTriangle, Camera, ArrowRight } from 'lucide-react';
+import {
+  Play, FileText, Loader2, ExternalLink, UserCheck, AlertTriangle, Camera,
+  ArrowRight, Layers
+} from 'lucide-react';
 import { stripHtml } from '../../lib/html';
+
+const ALL_TAB = '__all__';
+const NO_AREA = '__no_area__';
 
 export default function MyProcesses() {
   const [processes, setProcesses] = useState([]);
   const [assignedSteps, setAssignedSteps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(null);
+  const [activeArea, setActiveArea] = useState(ALL_TAB);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,6 +43,23 @@ export default function MyProcesses() {
     }
   };
 
+  const areaTabs = useMemo(() => {
+    const map = new Map();
+    processes.forEach(p => {
+      const key = p.area_id || NO_AREA;
+      const name = p.area_nombre || 'Sin área';
+      const entry = map.get(key) || { key, name, count: 0 };
+      entry.count += 1;
+      map.set(key, entry);
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [processes]);
+
+  const filtered = useMemo(() => {
+    if (activeArea === ALL_TAB) return processes;
+    return processes.filter(p => (p.area_id || NO_AREA) === activeArea);
+  }, [processes, activeArea]);
+
   if (loading) {
     return <div className="flex items-center gap-2 text-slate-500"><Loader2 className="w-4 h-4 animate-spin"/>Cargando procesos...</div>;
   }
@@ -47,9 +71,9 @@ export default function MyProcesses() {
         <p className="text-slate-500 mt-1">Procesos activos disponibles en tu área</p>
       </div>
 
-      {/* ---------- Pasos asignados a mí (colaboración) ---------- */}
+      {/* ---------- Pasos asignados a mí ---------- */}
       {assignedSteps.length > 0 && (
-        <section className="mb-10" data-testid="assigned-steps-section">
+        <section className="mb-8" data-testid="assigned-steps-section">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <UserCheck className="w-4 h-4"/>
@@ -112,9 +136,34 @@ export default function MyProcesses() {
         </section>
       )}
 
-      <div className="flex items-center gap-2 mb-3">
+      {/* ---------- Procesos disponibles ---------- */}
+      <div className="mb-2">
         <h2 className="text-lg font-semibold text-slate-900">Disponibles</h2>
-        <span className="text-xs text-slate-500">· Inicia una nueva ejecución</span>
+        <p className="text-xs text-slate-500">Selecciona un área para ver los procesos e inicia la ejecución</p>
+      </div>
+
+      {/* Área tabs */}
+      <div className="border-b border-slate-200 mb-4 overflow-x-auto" data-testid="area-tabs">
+        <div className="flex items-end gap-1 min-w-max">
+          <AreaTab
+            active={activeArea === ALL_TAB}
+            onClick={() => setActiveArea(ALL_TAB)}
+            icon={<Layers className="w-3.5 h-3.5"/>}
+            label="Todas"
+            count={processes.length}
+            testId="area-tab-all"
+          />
+          {areaTabs.map(a => (
+            <AreaTab
+              key={a.key}
+              active={activeArea === a.key}
+              onClick={() => setActiveArea(a.key)}
+              label={a.name}
+              count={a.count}
+              testId={`area-tab-${a.key}`}
+            />
+          ))}
+        </div>
       </div>
 
       {processes.length === 0 ? (
@@ -123,47 +172,85 @@ export default function MyProcesses() {
           <p className="text-slate-500">No hay procesos disponibles para tu área.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {processes.map(p => (
-            <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col hover:shadow-md transition-all">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="text-xs font-mono text-slate-400">{p.codigo}</span>
-                <span
-                  className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: p.tipo_color_fondo || '#3B82F6', color: p.tipo_color_texto || '#FFFFFF' }}
-                >
-                  {p.tipo_nombre || 'Sin tipo'}
-                </span>
-              </div>
-              <h3 className="text-base font-semibold text-slate-900 mb-1">{p.nombre}</h3>
-              <p className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[40px]">{stripHtml(p.descripcion) || 'Sin descripción'}</p>
-
-              <div className="flex items-center gap-3 text-xs text-slate-500 mb-4">
-                <span className="flex items-center gap-1"><ListChecks className="w-3.5 h-3.5" />{p.total_pasos} pasos</span>
-                <span>·</span>
-                <span>{p.area_nombre || 'Sin área'}</span>
-                {p.url_referencia && (
-                  <>
-                    <span>·</span>
-                    <a href={p.url_referencia} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline" onClick={e => e.stopPropagation()}>
-                      <ExternalLink className="w-3 h-3"/>Wiki
-                    </a>
-                  </>
-                )}
-              </div>
-
-              <button
-                onClick={() => handleStart(p.id)}
-                disabled={starting === p.id || p.total_pasos === 0}
-                className="mt-auto w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl px-4 py-2.5 font-medium flex items-center justify-center gap-2 transition-colors"
-              >
-                {starting === p.id ? <Loader2 className="w-4 h-4 animate-spin"/> : <Play className="w-4 h-4"/>}
-                {p.total_pasos === 0 ? 'Sin pasos definidos' : 'Iniciar'}
-              </button>
-            </div>
-          ))}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Código</th>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Proceso</th>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Tipo</th>
+                <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Pasos</th>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Referencia</th>
+                <th className="text-right text-xs font-semibold text-slate-500 uppercase px-6 py-3">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.length === 0 && (
+                <tr><td colSpan={6} className="text-center py-12 text-slate-400">
+                  <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300"/>Sin procesos en esta área
+                </td></tr>
+              )}
+              {filtered.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50" data-testid={`my-process-row-${p.id}`}>
+                  <td className="px-6 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">{p.codigo}</td>
+                  <td className="px-6 py-3">
+                    <p className="font-medium text-slate-900">{p.nombre}</p>
+                    <p className="text-xs text-slate-400 line-clamp-1 max-w-md">{stripHtml(p.descripcion) || 'Sin descripción'}</p>
+                  </td>
+                  <td className="px-6 py-3">
+                    {p.tipo_nombre ? (
+                      <span className="text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap" style={{ backgroundColor: p.tipo_color_fondo, color: p.tipo_color_texto }}>{p.tipo_nombre}</span>
+                    ) : <span className="text-xs text-slate-400">—</span>}
+                  </td>
+                  <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{p.total_pasos}</td>
+                  <td className="px-6 py-3">
+                    {p.url_referencia ? (
+                      <a
+                        href={p.url_referencia}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <ExternalLink className="w-3 h-3"/>Wiki
+                      </a>
+                    ) : <span className="text-xs text-slate-300">—</span>}
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <button
+                      onClick={() => handleStart(p.id)}
+                      disabled={starting === p.id || p.total_pasos === 0}
+                      data-testid={`start-process-btn-${p.id}`}
+                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                    >
+                      {starting === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Play className="w-3.5 h-3.5"/>}
+                      {p.total_pasos === 0 ? 'Sin pasos' : 'Iniciar'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 }
+
+const AreaTab = ({ active, onClick, icon, label, count, testId }) => (
+  <button
+    onClick={onClick}
+    data-testid={testId}
+    className={`px-4 py-2.5 -mb-px border-b-2 transition-colors text-sm font-medium flex items-center gap-2 whitespace-nowrap ${
+      active
+        ? 'border-slate-900 text-slate-900'
+        : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+    }`}
+  >
+    {icon}
+    {label}
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>
+      {count}
+    </span>
+  </button>
+);

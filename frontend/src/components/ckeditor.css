@@ -28,3 +28,6 @@
 .ck-content-rendered h2 { font-size: 1.125rem; font-weight: 600; margin: 0.5rem 0; }
 .ck-content-rendered h3 { font-size: 1rem; font-weight: 600; margin: 0.5rem 0; }
 .ck-content-rendered p { margin: 0.25rem 0; }
+.ck-content-rendered img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.5rem 0; }
+.ck-content-rendered figure { margin: 0.75rem 0; text-align: center; }
+.ck-content-rendered figcaption { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }

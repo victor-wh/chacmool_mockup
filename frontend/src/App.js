@@ -12,7 +12,7 @@ import PDIView from './pages/PDIView';
 import EmployeeProfile from './pages/EmployeeProfile';
 import ProcessHome from './pages/process/ProcessHome';
 import MyProcesses from './pages/process/MyProcesses';
-import AllProcesses from './pages/process/AllProcesses';
+import ProcessTreeDropdown from './components/ProcessTreeDropdown';
 import MyAssignedSteps from './pages/process/MyAssignedSteps';
 import MyExecutions from './pages/process/MyExecutions';
 import ExecutionDetail from './pages/process/ExecutionDetail';
@@ -1007,7 +1007,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/my", icon: PlayCircle, label: "Mis Procesos", description: "Procesos disponibles", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/my-assigned-steps", icon: UserCheck, label: "Pasos asignados a mí", description: "Colaboración entre áreas", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/my-executions", icon: ClipboardList, label: "Mis Ejecuciones", description: "Historial personal", roles: ['admin', 'empleado', 'manager'] },
-    { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'] },
+    { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'], dropdown: 'process-tree' },
     { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
     { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
     { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
@@ -1051,20 +1051,24 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
         <ul className="space-y-1">
           {navItems.map((item) => (
             <li key={item.path}>
-              <NavLink
-                to={item.path}
-                className={({ isActive }) =>
-                  `nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-                    isActive ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-600 hover:text-slate-900"
-                  }`
-                }
-              >
-                <item.icon className="w-5 h-5" />
-                <div className="flex-1">
-                  <span className="block">{item.label}</span>
-                  <span className="text-xs text-slate-400">{item.description}</span>
-                </div>
-              </NavLink>
+              {item.dropdown === 'process-tree' ? (
+                <ProcessTreeDropdown />
+              ) : (
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                      isActive ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-600 hover:text-slate-900"
+                    }`
+                  }
+                >
+                  <item.icon className="w-5 h-5" />
+                  <div className="flex-1">
+                    <span className="block">{item.label}</span>
+                    <span className="text-xs text-slate-400">{item.description}</span>
+                  </div>
+                </NavLink>
+              )}
             </li>
           ))}
         </ul>
@@ -1532,7 +1536,6 @@ const AppContent = () => {
             <Route path="/process/my" element={<MyProcesses />} />
             <Route path="/process/my-assigned-steps" element={<MyAssignedSteps />} />
             <Route path="/process/my-executions" element={<MyExecutions />} />
-            <Route path="/process/all" element={<AllProcesses />} />
             <Route path="/process/execution/:id" element={<ExecutionDetail />} />
             <Route path="/process/admin/processes" element={<ProcessList />} />
             <Route path="/process/admin/processes/new" element={<ProcessForm />} />

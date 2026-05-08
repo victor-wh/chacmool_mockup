@@ -15,6 +15,7 @@ import MyProcesses from './pages/process/MyProcesses';
 import AuditList from './pages/audits/AuditList';
 import AuditForm from './pages/audits/AuditForm';
 import AuditDetail from './pages/audits/AuditDetail';
+import AuditCorrectivePlanPage from './pages/audits/AuditCorrectivePlanPage';
 import ProcessTreeDropdown from './components/ProcessTreeDropdown';
 import MyAssignedSteps from './pages/process/MyAssignedSteps';
 import MyExecutions from './pages/process/MyExecutions';
@@ -1544,6 +1545,7 @@ const AppContent = () => {
             <Route path="/audits" element={<AuditList />} />
             <Route path="/audits/new" element={<AuditForm />} />
             <Route path="/audits/:id" element={<AuditDetail />} />
+            <Route path="/audits/:id/plan-correctivo" element={<AuditCorrectivePlanPage />} />
             <Route path="/process/execution/:id" element={<ExecutionDetail />} />
             <Route path="/process/admin/processes" element={<ProcessList />} />
             <Route path="/process/admin/processes/new" element={<ProcessForm />} />

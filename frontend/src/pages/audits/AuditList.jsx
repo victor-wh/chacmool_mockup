@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auditAPI } from '../../services/auditApi';
-import { Plus, Loader2, ClipboardCheck, Eye, Trash2, Calendar, Search } from 'lucide-react';
+import { Plus, Loader2, ClipboardCheck, Eye, Trash2, Calendar, Search, FileWarning } from 'lucide-react';
 
 const STATE = {
   borrador:    { label: 'Borrador', cls: 'bg-slate-100 text-slate-700' },
@@ -127,6 +127,16 @@ export default function AuditList() {
                   <td className="px-6 py-3">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => navigate(`/audits/${a.id}`)} title="Ver / Continuar" data-testid={`open-audit-${a.id}`} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Eye className="w-4 h-4"/></button>
+                      {a.estado === 'completada' && a.aprobada === false && (
+                        <button
+                          onClick={() => navigate(`/audits/${a.id}/plan-correctivo`)}
+                          title="Plan de acción correctiva"
+                          data-testid={`open-plan-${a.id}`}
+                          className="p-1.5 hover:bg-red-50 rounded text-red-600"
+                        >
+                          <FileWarning className="w-4 h-4"/>
+                        </button>
+                      )}
                       <button onClick={() => handleDelete(a)} title="Eliminar" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   </td>

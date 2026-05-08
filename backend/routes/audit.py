@@ -206,16 +206,6 @@ async def delete_audit(audit_id: str, current_user: dict = Depends(require_admin
 # ============================================================
 # PLAN CORRECTIVO (a nivel auditoría)
 # ============================================================
-def _audit_failed(audit: dict) -> bool:
-    """Una auditoría 'falla' (requiere plan correctivo) si:
-    - porcentaje <= 70, O
-    - hay al menos un paso crítico omitido (cumplido=False)
-    """
-    pct = audit.get("porcentaje", 0) or 0
-    crit = audit.get("criticos_omitidos", 0) or 0
-    return pct <= 70 or crit > 0
-
-
 @router.put("/{audit_id}/plan-correctivo")
 async def update_plan_correctivo(
     audit_id: str,
@@ -225,12 +215,16 @@ async def update_plan_correctivo(
     a = await db.audits.find_one({"id": audit_id}, {"_id": 0})
     if not a:
         raise HTTPException(404, "Auditoría no encontrada")
-    if a.get("estado") == "completada":
-        raise HTTPException(400, "No se puede modificar el plan correctivo de una auditoría completada")
-    if not _audit_failed(a):
+    # El plan correctivo solo se redacta tras finalizar y solo si la auditoría reprobó.
+    if a.get("estado") != "completada":
         raise HTTPException(
             400,
-            "El plan correctivo solo aplica cuando la auditoría tiene ≤70% o pasos críticos omitidos",
+            "El plan correctivo solo se puede registrar después de finalizar la auditoría",
+        )
+    if a.get("aprobada") is True:
+        raise HTTPException(
+            400,
+            "El plan correctivo solo aplica cuando la auditoría reprueba (≤70% o críticos omitidos)",
         )
     current = a.get("plan_correctivo") or {
         "descripcion_desviacion": "",

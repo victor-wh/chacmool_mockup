@@ -102,7 +102,7 @@ Evaluación de procesos por administradores (presencial o histórica), con auto-
 - [x] Vistas React: `AuditList`, `AuditForm` (wizard), `AuditDetail` con tabla evaluadora
 - [x] Tabla split: "Realizado" (operario, informativo) vs "Confirmado" (auditor, decisión)
 - [x] Plan de acción por paso aparece dinámicamente sólo si auditor marca "No"
-- [x] **(Feb 2026) Plan Maestro de Acción Correctiva** — formulario completo a nivel auditoría que aparece cuando porcentaje ≤ 70% o hay críticos omitidos. Incluye:
+- [x] **(Feb 2026) Plan Maestro de Acción Correctiva** — formulario completo en **vista dedicada** `/audits/:id/plan-correctivo`. Aparece **únicamente al finalizar** la auditoría y solo si reprueba (porcentaje ≤ 70% o críticos omitidos). Tras "Finalizar", redirige automáticamente al plan si reprobó. Incluye:
   - Descripción de la desviación
   - Investigación de causa raíz (5 Porqués)
   - Acción correctiva (elimina la causa)

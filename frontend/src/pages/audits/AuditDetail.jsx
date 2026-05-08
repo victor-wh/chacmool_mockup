@@ -5,9 +5,8 @@ import { processAPI } from '../../services/processApi';
 import {
   Loader2, ArrowLeft, Save, Plus, Trash2, Pencil, Check, X,
   ClipboardCheck, ListChecks, AlertTriangle, Image as ImageIcon,
-  ShieldCheck, ShieldX
+  ShieldCheck, ShieldX, FileWarning
 } from 'lucide-react';
-import AuditCorrectivePlan from './AuditCorrectivePlan';
 
 const STATE = {
   borrador:    { label: 'Borrador',    cls: 'bg-slate-100 text-slate-700' },
@@ -130,7 +129,12 @@ export default function AuditDetail() {
       if (!window.confirm('¿Finalizar y completar la auditoría?')) return;
     }
     try {
-      await auditAPI.update(id, { estado: 'completada' });
+      const updated = await auditAPI.update(id, { estado: 'completada' });
+      // Si reprobó, redirigir al plan de acción correctiva
+      if (updated && updated.aprobada === false) {
+        navigate(`/audits/${id}/plan-correctivo`);
+        return;
+      }
       load();
     } catch (e) { alert(e.message); }
   };
@@ -212,17 +216,16 @@ export default function AuditDetail() {
                   : `${audit.criticos_omitidos} paso(s) crítico(s) omitido(s) — automatic fail.`}
             </p>
           </div>
+          {!audit.aprobada && (
+            <button
+              onClick={() => navigate(`/audits/${id}/plan-correctivo`)}
+              data-testid="audit-open-corrective-plan-btn"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-2 font-semibold text-sm flex items-center gap-2 shadow-sm flex-shrink-0"
+            >
+              <FileWarning className="w-4 h-4"/>Plan de acción correctiva
+            </button>
+          )}
         </div>
-      )}
-
-      {/* Plan Maestro de Acción Correctiva — sólo si la auditoría está reprobando o tiene críticos omitidos */}
-      {audit.items_evaluados > 0 && (audit.porcentaje <= 70 || audit.criticos_omitidos > 0) && (
-        <AuditCorrectivePlan
-          audit={audit}
-          staffList={staffList}
-          readOnly={readOnly}
-          onSaved={(updated) => setAudit(prev => ({ ...prev, plan_correctivo: updated }))}
-        />
       )}
 
       {/* Items table */}

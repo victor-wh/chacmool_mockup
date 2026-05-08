@@ -127,6 +127,7 @@ class ProcessStepBase(BaseModel):
     puntos: int = 1
     requiere_evidencia: bool = False
     es_critico: bool = False
+    auditable: bool = True
     staff_asignado_id: Optional[str] = None
 
 
@@ -141,6 +142,7 @@ class ProcessStepUpdate(BaseModel):
     puntos: Optional[int] = None
     requiere_evidencia: Optional[bool] = None
     es_critico: Optional[bool] = None
+    auditable: Optional[bool] = None
     staff_asignado_id: Optional[str] = None
 
 
@@ -201,6 +203,7 @@ class StepExecution(BaseModel):
     paso_puntos: int
     paso_requiere_evidencia: bool = False
     paso_es_critico: bool = False
+    paso_auditable: bool = True
     staff_asignado_id: Optional[str] = None
     staff_asignado_nombre: Optional[str] = ""
     estado: int = 0  # 0=Pendiente | 1=En progreso | 2=Completado | 3=Error

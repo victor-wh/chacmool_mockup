@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Loader2, Plus, Pencil, Trash2, ArrowLeft, ExternalLink, ArrowUp, ArrowDown, Save, X, AlertTriangle, Camera, User } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, ArrowLeft, ExternalLink, ArrowUp, ArrowDown, Save, X, AlertTriangle, Camera, User, ClipboardCheck } from 'lucide-react';
 import { RichTextEditor } from '../../components/RichTextEditor';
 import { stripHtml } from '../../lib/html';
 
-const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, staff_asignado_id: '' };
+const defaultStep = { nombre: '', descripcion: '', orden: 0, puntos: 1, requiere_evidencia: false, es_critico: false, auditable: true, staff_asignado_id: '' };
 
 export default function ProcessDetail() {
   const { id } = useParams();
@@ -32,7 +32,7 @@ export default function ProcessDetail() {
   useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setForm(defaultStep); setEditingStep('new'); };
-  const openEdit = (s) => { setEditingStep(s.id); setForm({ ...s, staff_asignado_id: s.staff_asignado_id || '' }); };
+  const openEdit = (s) => { setEditingStep(s.id); setForm({ ...s, auditable: s.auditable !== false, staff_asignado_id: s.staff_asignado_id || '' }); };
 
   const saveStep = async (e) => {
     e.preventDefault();
@@ -132,9 +132,10 @@ export default function ProcessDetail() {
                 </td>
                 <td className="px-4 py-3 text-center text-sm font-medium text-slate-700">{s.puntos}</td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-1 flex-wrap">
                     {s.requiere_evidencia && <span title="Requiere evidencia" className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700"><Camera className="w-3 h-3"/>Evid.</span>}
                     {s.es_critico && <span title="Crítico" className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-50 text-red-700"><AlertTriangle className="w-3 h-3"/>Crít.</span>}
+                    {s.auditable === false && <span title="No auditable" className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">No audit.</span>}
                   </div>
                 </td>
                 <td className="px-6 py-3">
@@ -174,15 +175,20 @@ export default function ProcessDetail() {
                     placeholder="Instrucciones y detalles del paso..."
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid ${form.auditable !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Orden</label>
                     <input type="number" min="0" value={form.orden} onChange={e => setForm({ ...form, orden: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Puntos</label>
-                    <input type="number" min="0" value={form.puntos} onChange={e => setForm({ ...form, puntos: parseInt(e.target.value) || 0 })} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
-                  </div>
+                  {form.auditable !== false && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                        Puntos
+                        <span className="text-xs font-normal text-emerald-600">(para auditoría)</span>
+                      </label>
+                      <input type="number" min="0" value={form.puntos} onChange={e => setForm({ ...form, puntos: parseInt(e.target.value) || 0 })} data-testid="step-puntos-input" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"/>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
@@ -216,6 +222,10 @@ export default function ProcessDetail() {
                   <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer">
                     <span className="text-sm text-slate-700 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-600"/>Es crítico</span>
                     <input type="checkbox" checked={form.es_critico} onChange={e => setForm({ ...form, es_critico: e.target.checked })}/>
+                  </label>
+                  <label className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg cursor-pointer">
+                    <span className="text-sm text-slate-700 flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-emerald-600"/>Es auditable</span>
+                    <input type="checkbox" data-testid="step-auditable-checkbox" checked={form.auditable !== false} onChange={e => setForm({ ...form, auditable: e.target.checked })}/>
                   </label>
                 </div>
               </div>

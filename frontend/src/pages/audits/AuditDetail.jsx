@@ -4,7 +4,8 @@ import { auditAPI } from '../../services/auditApi';
 import { processAPI } from '../../services/processApi';
 import {
   Loader2, ArrowLeft, Save, Plus, Trash2, Pencil, Check, X,
-  ClipboardCheck, ListChecks, AlertTriangle
+  ClipboardCheck, ListChecks, AlertTriangle, Image as ImageIcon,
+  ShieldCheck, ShieldX
 } from 'lucide-react';
 
 const STATE = {
@@ -18,6 +19,7 @@ export default function AuditDetail() {
   const navigate = useNavigate();
   const [audit, setAudit] = useState(null);
   const [items, setItems] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [steps, setSteps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showStepPicker, setShowStepPicker] = useState(false);
@@ -27,6 +29,7 @@ export default function AuditDetail() {
   const [busyId, setBusyId] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
   const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', puntos: 1 });
+  const [evidenceModalIdx, setEvidenceModalIdx] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -34,10 +37,11 @@ export default function AuditDetail() {
       setAudit(a);
       const its = await auditAPI.listItems(id);
       setItems(its || []);
-      if (a.modo === 'pasos') {
+      const st = await processAPI.listStaff().catch(() => []);
+      setStaffList(st || []);
+      if (a.modo === 'pasos' && !a.es_supervision) {
         const s = await processAPI.listSteps(a.proceso_id);
         setSteps(s || []);
-        // Pre-mark already imported steps
         const map = {};
         (its || []).forEach(it => { if (it.paso_id) map[it.paso_id] = true; });
         setSelectedStepIds(map);
@@ -81,6 +85,14 @@ export default function AuditDetail() {
       await load();
     } catch (e) { alert(e.message); }
     setBusyId(null);
+  };
+
+  const updateField = async (item_id, patch) => {
+    try {
+      await auditAPI.updateItem(id, item_id, patch);
+      // optimistic refresh
+      setItems(prev => prev.map(it => it.id === item_id ? { ...it, ...patch } : it));
+    } catch (e) { alert(e.message); }
   };
 
   const deleteItem = async (item) => {
@@ -167,9 +179,40 @@ export default function AuditDetail() {
             <p className="text-xs text-slate-400">Puntaje</p>
             <p className="text-2xl font-bold text-slate-900">{audit.puntos_obtenidos}<span className="text-base text-slate-400">/{audit.total_puntos}</span></p>
             <p className="text-xs text-slate-500">{audit.porcentaje}% · {audit.items_evaluados}/{audit.total_items} evaluados</p>
+            {audit.criticos_omitidos > 0 && (
+              <p className="text-xs text-red-600 font-semibold mt-1 inline-flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3"/>{audit.criticos_omitidos} crítico(s) omitido(s)
+              </p>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Aprobada/Reprobada banner cuando está completada */}
+      {audit.estado === 'completada' && audit.aprobada !== null && audit.aprobada !== undefined && (
+        <div
+          className={`rounded-2xl p-4 mb-4 border flex items-center gap-3 ${
+            audit.aprobada
+              ? 'bg-green-50 border-green-200 text-green-900'
+              : 'bg-red-50 border-red-200 text-red-900'
+          }`}
+          data-testid="audit-result-banner"
+        >
+          {audit.aprobada
+            ? <ShieldCheck className="w-8 h-8 text-green-600"/>
+            : <ShieldX className="w-8 h-8 text-red-600"/>}
+          <div className="flex-1">
+            <p className="text-lg font-bold uppercase tracking-wide">{audit.aprobada ? 'Aprobada' : 'Reprobada'}</p>
+            <p className="text-xs opacity-80">
+              {audit.aprobada
+                ? `Cumplimiento ${audit.porcentaje}% (≥70%) y sin pasos críticos omitidos.`
+                : audit.porcentaje < 70
+                  ? `Cumplimiento ${audit.porcentaje}% por debajo del 70% requerido${audit.criticos_omitidos > 0 ? ` · ${audit.criticos_omitidos} crítico(s) omitido(s)` : ''}.`
+                  : `${audit.criticos_omitidos} paso(s) crítico(s) omitido(s) — automatic fail.`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Items table */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-4">
@@ -178,7 +221,7 @@ export default function AuditDetail() {
             <ListChecks className="w-4 h-4 text-emerald-700"/>
             <h2 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Puntos a evaluar</h2>
           </div>
-          {!readOnly && (
+          {!readOnly && !audit.es_supervision && (
             <div className="flex gap-2">
               {audit.modo === 'pasos' && (
                 <button onClick={() => setShowStepPicker(true)} data-testid="audit-pick-steps-btn" className="text-xs bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg px-3 py-1.5 font-medium flex items-center gap-1">
@@ -194,22 +237,29 @@ export default function AuditDetail() {
           )}
         </div>
 
-        <table className="w-full">
+        <table className="w-full text-sm">
           <thead className="bg-emerald-500 text-white">
             <tr>
-              <th className="text-left text-xs font-semibold uppercase px-4 py-2 w-16">Paso</th>
-              <th className="text-left text-xs font-semibold uppercase px-4 py-2">Título</th>
-              <th className="text-left text-xs font-semibold uppercase px-4 py-2">Descripción</th>
-              <th className="text-center text-xs font-semibold uppercase px-4 py-2 w-24">Puntos</th>
-              <th className="text-center text-xs font-semibold uppercase px-4 py-2 w-44">Realizado correctamente</th>
-              {!readOnly && <th className="px-4 py-2 w-20"></th>}
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2 w-10">#</th>
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2">Actividad</th>
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2">Descripción</th>
+              <th className="text-center text-[10px] font-semibold uppercase px-2 py-2 w-16">Evid.</th>
+              <th className="text-center text-[10px] font-semibold uppercase px-2 py-2 w-14">Pts</th>
+              <th className="text-center text-[10px] font-semibold uppercase px-2 py-2 w-32">Realizado</th>
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2">Desviación</th>
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2">Acción correctiva</th>
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2 w-32">Responsable</th>
+              <th className="text-left text-[10px] font-semibold uppercase px-2 py-2 w-32">Fecha compromiso</th>
+              {!readOnly && <th className="px-2 py-2 w-12"></th>}
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && (
-              <tr><td colSpan={readOnly ? 5 : 6} className="text-center py-12 text-slate-400">
+              <tr><td colSpan={readOnly ? 10 : 11} className="text-center py-12 text-slate-400">
                 <ListChecks className="w-10 h-10 mx-auto mb-2 text-slate-300"/>
-                {audit.modo === 'pasos' ? 'Importa pasos del proceso para evaluarlos' : 'Agrega los puntos que deseas evaluar'}
+                {audit.es_supervision
+                  ? 'Esta supervisión no tiene pasos auditables registrados.'
+                  : audit.modo === 'pasos' ? 'Importa pasos del proceso para evaluarlos' : 'Agrega los puntos que deseas evaluar'}
               </td></tr>
             )}
             {items.map((it, idx) => {
@@ -217,61 +267,111 @@ export default function AuditDetail() {
               const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30';
               const isEditing = editingItemId === it.id;
               return (
-                <tr key={it.id} className={`${rowBg} border-b border-emerald-100`} data-testid={`audit-item-${it.id}`}>
-                  <td className="px-4 py-3 text-center text-sm font-semibold text-slate-700">{it.orden}</td>
+                <tr key={it.id} className={`${rowBg} border-b border-emerald-100 align-top`} data-testid={`audit-item-${it.id}`}>
+                  <td className="px-2 py-2 text-center text-xs font-semibold text-slate-700">{it.orden}</td>
                   {isEditing ? (
                     <>
-                      <td className="px-4 py-3"><input value={editForm.titulo} onChange={e => setEditForm({ ...editForm, titulo: e.target.value })} className="w-full border border-slate-200 rounded px-2 py-1 text-sm"/></td>
-                      <td className="px-4 py-3"><input value={editForm.descripcion} onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })} className="w-full border border-slate-200 rounded px-2 py-1 text-sm"/></td>
-                      <td className="px-4 py-3 text-center"><input type="number" min={1} value={editForm.puntos} onChange={e => setEditForm({ ...editForm, puntos: e.target.value })} className="w-16 border border-slate-200 rounded px-2 py-1 text-sm text-center"/></td>
-                      <td className="px-4 py-3 text-center"></td>
-                      <td className="px-4 py-3"><div className="flex justify-end gap-1">
-                        <button onClick={saveEdit} className="p-1.5 hover:bg-emerald-100 rounded text-emerald-700"><Check className="w-4 h-4"/></button>
-                        <button onClick={() => setEditingItemId(null)} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><X className="w-4 h-4"/></button>
-                      </div></td>
+                      <td className="px-2 py-2"><input value={editForm.titulo} onChange={e => setEditForm({ ...editForm, titulo: e.target.value })} className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs"/></td>
+                      <td className="px-2 py-2"><input value={editForm.descripcion} onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })} className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs"/></td>
+                      <td className="px-2 py-2"></td>
+                      <td className="px-2 py-2 text-center"><input type="number" min={1} value={editForm.puntos} onChange={e => setEditForm({ ...editForm, puntos: e.target.value })} className="w-12 border border-slate-200 rounded px-1 py-1 text-xs text-center"/></td>
+                      <td className="px-2 py-2"></td><td className="px-2 py-2"></td><td className="px-2 py-2"></td><td className="px-2 py-2"></td><td className="px-2 py-2"></td>
+                      {!readOnly && (
+                        <td className="px-2 py-2"><div className="flex justify-end gap-1">
+                          <button onClick={saveEdit} className="p-1 hover:bg-emerald-100 rounded text-emerald-700"><Check className="w-3.5 h-3.5"/></button>
+                          <button onClick={() => setEditingItemId(null)} className="p-1 hover:bg-slate-100 rounded text-slate-600"><X className="w-3.5 h-3.5"/></button>
+                        </div></td>
+                      )}
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-slate-900">{it.titulo}</p>
-                        {it.origen === 'paso' && <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">desde paso del proceso</span>}
+                      <td className="px-2 py-2">
+                        <p className="text-xs font-medium text-slate-900">{it.titulo}</p>
+                        <div className="flex gap-1 mt-0.5 flex-wrap">
+                          {it.es_critico && <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 rounded bg-red-50 text-red-700"><AlertTriangle className="w-2.5 h-2.5"/>Crítico</span>}
+                          {it.origen === 'paso' && <span className="text-[9px] text-slate-400">paso #{it.paso_id ? '' : ''}</span>}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-600 max-w-xs">
+                      <td className="px-2 py-2 text-xs text-slate-600 max-w-xs">
                         {it.descripcion ? (
-                          <span dangerouslySetInnerHTML={{ __html: it.descripcion }} className="ck-content-rendered line-clamp-2"/>
+                          <span dangerouslySetInnerHTML={{ __html: it.descripcion }} className="ck-content-rendered line-clamp-2 block"/>
                         ) : <span className="text-slate-400">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-center text-sm font-semibold text-slate-700">{it.puntos}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="px-2 py-2 text-center">
+                        {it.evidencia ? (
+                          <button onClick={() => setEvidenceModalIdx(idx)} className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs" title="Ver evidencia"><ImageIcon className="w-3.5 h-3.5"/></button>
+                        ) : <span className="text-slate-300 text-xs">—</span>}
+                      </td>
+                      <td className="px-2 py-2 text-center text-xs font-semibold text-slate-700">{it.puntos}</td>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center justify-center gap-1">
                           {!readOnly ? (
                             <>
                               <button
                                 disabled={busyId === it.id}
                                 onClick={() => setCumplido(it, true)}
                                 data-testid={`audit-item-${it.id}-yes`}
-                                className={`px-3 py-1 rounded-full text-xs font-semibold border-2 transition-colors ${it.cumplido === true ? 'bg-green-500 text-white border-green-500' : 'bg-white text-green-700 border-green-300 hover:bg-green-50'}`}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${it.cumplido === true ? 'bg-green-500 text-white border-green-500' : 'bg-white text-green-700 border-green-300 hover:bg-green-50'}`}
                               >Sí</button>
                               <button
                                 disabled={busyId === it.id}
                                 onClick={() => setCumplido(it, false)}
                                 data-testid={`audit-item-${it.id}-no`}
-                                className={`px-3 py-1 rounded-full text-xs font-semibold border-2 transition-colors ${it.cumplido === false ? 'bg-red-500 text-white border-red-500' : 'bg-white text-red-700 border-red-300 hover:bg-red-50'}`}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${it.cumplido === false ? 'bg-red-500 text-white border-red-500' : 'bg-white text-red-700 border-red-300 hover:bg-red-50'}`}
                               >No</button>
                             </>
                           ) : (
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${it.cumplido === true ? 'bg-green-100 text-green-700' : it.cumplido === false ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
-                              {it.cumplido === true ? 'Sí' : it.cumplido === false ? 'No' : 'Sin evaluar'}
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${it.cumplido === true ? 'bg-green-100 text-green-700' : it.cumplido === false ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {it.cumplido === true ? 'Sí' : it.cumplido === false ? 'No' : '—'}
                             </span>
                           )}
-                          {isEvaluated && <span className="text-[10px] text-slate-400">{it.puntos_obtenidos} pts</span>}
                         </div>
+                        {isEvaluated && <p className="text-[10px] text-center text-slate-400 mt-0.5">{it.puntos_obtenidos} pts</p>}
+                      </td>
+                      {/* Plan de acción */}
+                      <td className="px-2 py-2">
+                        {readOnly
+                          ? <span className="text-xs text-slate-600">{it.desviacion || <span className="text-slate-300">—</span>}</span>
+                          : <textarea
+                              defaultValue={it.desviacion || ''}
+                              onBlur={e => e.target.value !== (it.desviacion || '') && updateField(it.id, { desviacion: e.target.value })}
+                              rows={2} className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs resize-y" placeholder="Descripción de la falla"
+                            />}
+                      </td>
+                      <td className="px-2 py-2">
+                        {readOnly
+                          ? <span className="text-xs text-slate-600">{it.accion_correctiva || <span className="text-slate-300">—</span>}</span>
+                          : <textarea
+                              defaultValue={it.accion_correctiva || ''}
+                              onBlur={e => e.target.value !== (it.accion_correctiva || '') && updateField(it.id, { accion_correctiva: e.target.value })}
+                              rows={2} className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs resize-y" placeholder="Cómo corregir"
+                            />}
+                      </td>
+                      <td className="px-2 py-2">
+                        {readOnly
+                          ? <span className="text-xs text-slate-600">{it.responsable_nombre || <span className="text-slate-300">—</span>}</span>
+                          : <select
+                              value={it.responsable_id || ''}
+                              onChange={e => updateField(it.id, { responsable_id: e.target.value || null })}
+                              className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs bg-white"
+                            >
+                              <option value="">—</option>
+                              {staffList.map(s => <option key={s.id} value={s.id}>{s.user_name}</option>)}
+                            </select>}
+                      </td>
+                      <td className="px-2 py-2">
+                        {readOnly
+                          ? <span className="text-xs text-slate-600">{it.fecha_compromiso || <span className="text-slate-300">—</span>}</span>
+                          : <input type="date"
+                              defaultValue={it.fecha_compromiso || ''}
+                              onChange={e => updateField(it.id, { fecha_compromiso: e.target.value || null })}
+                              className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs"/>}
                       </td>
                       {!readOnly && (
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-1">
-                            <button onClick={() => startEdit(it)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500"><Pencil className="w-3.5 h-3.5"/></button>
-                            <button onClick={() => deleteItem(it)} className="p-1.5 hover:bg-red-50 rounded text-red-500"><Trash2 className="w-3.5 h-3.5"/></button>
+                        <td className="px-2 py-2">
+                          <div className="flex justify-end gap-0.5">
+                            <button onClick={() => startEdit(it)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><Pencil className="w-3 h-3"/></button>
+                            <button onClick={() => deleteItem(it)} className="p-1 hover:bg-red-50 rounded text-red-500"><Trash2 className="w-3 h-3"/></button>
                           </div>
                         </td>
                       )}
@@ -283,6 +383,21 @@ export default function AuditDetail() {
           </tbody>
         </table>
       </div>
+
+      {/* Evidence preview modal */}
+      {evidenceModalIdx !== null && items[evidenceModalIdx]?.evidencia && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEvidenceModalIdx(null)}>
+          <div className="bg-white rounded-2xl max-w-3xl w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900 truncate">Evidencia · {items[evidenceModalIdx].titulo}</h3>
+              <button onClick={() => setEvidenceModalIdx(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="p-5 max-h-[70vh] overflow-y-auto bg-slate-50">
+              <img src={items[evidenceModalIdx].evidencia} alt="Evidencia" className="max-w-full h-auto rounded-lg mx-auto"/>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Action footer */}
       {!readOnly && items.length > 0 && (

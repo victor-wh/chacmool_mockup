@@ -68,11 +68,12 @@ async def _ensure_evaluator_staff(current_user: dict) -> dict:
 
 
 async def _recompute_totals(audit_id: str) -> dict:
-    """Recalcula total_puntos / puntos_obtenidos / porcentaje a partir de los items."""
+    """Recalcula total_puntos / puntos_obtenidos / porcentaje / criticos_omitidos."""
     items = await db.audit_items.find({"audit_id": audit_id}, {"_id": 0}).to_list(1000)
     total = sum(i.get("puntos", 0) for i in items)
     obtained = sum(i.get("puntos_obtenidos", 0) for i in items)
     evaluated = sum(1 for i in items if i.get("cumplido") is not None)
+    criticos_omitidos = sum(1 for i in items if i.get("es_critico") and i.get("cumplido") is False)
     pct = round((obtained / total) * 100, 2) if total > 0 else 0.0
     update = {
         "total_puntos": total,
@@ -80,6 +81,7 @@ async def _recompute_totals(audit_id: str) -> dict:
         "porcentaje": pct,
         "total_items": len(items),
         "items_evaluados": evaluated,
+        "criticos_omitidos": criticos_omitidos,
         "updated_at": _now(),
     }
     await db.audits.update_one({"id": audit_id}, {"$set": update})
@@ -177,6 +179,10 @@ async def update_audit(audit_id: str, payload: AuditUpdate, current_user: dict =
         raise HTTPException(400, "estado inválido")
     if update.get("estado") == "completada":
         update["hora_fin"] = _hhmm()
+        # Aprobada si %>=70 y no hay críticos omitidos
+        a = await db.audits.find_one({"id": audit_id}, {"_id": 0})
+        if a:
+            update["aprobada"] = (a.get("porcentaje", 0) >= 70) and (a.get("criticos_omitidos", 0) == 0)
     update["updated_at"] = _now()
     res = await db.audits.update_one({"id": audit_id}, {"$set": update})
     if res.matched_count == 0:
@@ -274,15 +280,21 @@ async def update_item(
     if not item:
         raise HTTPException(404, "Item no encontrado")
     raw = payload.dict(exclude_unset=True)
-    nullable = {"cumplido"}
+    nullable = {"cumplido", "responsable_id", "fecha_compromiso"}
     update = {k: v for k, v in raw.items() if v is not None or k in nullable}
-    # Si se actualiza cumplido o puntos, recomputamos puntos_obtenidos para este item
+    # Si cambia responsable_id, denormalizar nombre
+    if "responsable_id" in update:
+        if update["responsable_id"]:
+            st = await db.process_staff.find_one({"id": update["responsable_id"]}, {"_id": 0})
+            update["responsable_nombre"] = (st or {}).get("user_name", "")
+        else:
+            update["responsable_nombre"] = ""
+    # Si se actualiza cumplido o puntos, recomputamos puntos_obtenidos
     new_doc = {**item, **update}
     cumplido = new_doc.get("cumplido")
     new_doc["puntos_obtenidos"] = new_doc.get("puntos", 0) if cumplido is True else 0
     update["puntos_obtenidos"] = new_doc["puntos_obtenidos"]
     await db.audit_items.update_one({"id": item_id}, {"$set": update})
-    # cambiar estado del audit a 'en_progreso' si estaba en borrador y ya empezó la evaluación
     audit = await db.audits.find_one({"id": audit_id}, {"_id": 0})
     if audit and audit.get("estado") == "borrador" and cumplido is not None:
         await db.audits.update_one({"id": audit_id}, {"$set": {"estado": "en_progreso"}})
@@ -302,6 +314,98 @@ async def delete_item(audit_id: str, item_id: str, current_user: dict = Depends(
 # ============================================================
 # Helpers expuestos
 # ============================================================
+@router.post("/from-execution/{ejecucion_id}")
+async def create_supervision_from_execution(
+    ejecucion_id: str, current_user: dict = Depends(require_admin)
+):
+    """
+    Crea una auditoría tipo 'supervisión' a partir de una ejecución existente.
+    Importa automáticamente como ítems los step_executions cuyo paso es auditable,
+    copiando evidencia y datos del paso. Retorna el audit creado.
+    """
+    exe = await db.process_executions.find_one({"id": ejecucion_id}, {"_id": 0})
+    if not exe:
+        raise HTTPException(404, "Ejecución no encontrada")
+    proc = await db.process_definitions.find_one({"id": exe["proceso_id"]}, {"_id": 0})
+    if not proc:
+        raise HTTPException(404, "Proceso de la ejecución no encontrado")
+    evaluator_staff = await _ensure_evaluator_staff(current_user)
+    audit_id = str(uuid4())
+    audit = {
+        "id": audit_id,
+        "codigo": await _next_codigo(),
+        "proceso_id": proc["id"],
+        "proceso_nombre": proc.get("nombre", ""),
+        "proceso_codigo": proc.get("codigo", ""),
+        "tipo": "historica",
+        "ejecucion_id": ejecucion_id,
+        "ejecucion_codigo": exe.get("codigo_ejecucion", ""),
+        "modo": "pasos",
+        "evaluador_id": evaluator_staff["id"],
+        "evaluador_nombre": evaluator_staff.get("user_name", ""),
+        "evaluado_id": exe.get("staff_id"),
+        "evaluado_nombre": exe.get("staff_user_name", ""),
+        "estado": "borrador",
+        "fecha": _today_str(),
+        "hora_inicio": _hhmm(),
+        "hora_fin": None,
+        "comentarios": "",
+        "total_puntos": 0,
+        "puntos_obtenidos": 0,
+        "porcentaje": 0.0,
+        "total_items": 0,
+        "items_evaluados": 0,
+        "criticos_omitidos": 0,
+        "aprobada": None,
+        "es_supervision": True,
+        "created_at": _now(),
+        "updated_at": None,
+    }
+    await db.audits.insert_one(dict(audit))
+    # Importar step_executions auditables como audit_items
+    step_execs = await db.process_step_executions.find(
+        {"ejecucion_id": ejecucion_id}, {"_id": 0}
+    ).sort("paso_orden", 1).to_list(500)
+    created = 0
+    for idx, se in enumerate(step_execs):
+        if not se.get("paso_auditable", True):
+            continue
+        # Si la pre-evaluación dice estado=2 (Completado) → cumplido=True; estado=3 (Error/Omitido) → False
+        pre_cumplido = None
+        if se.get("estado") == 2:
+            pre_cumplido = True
+        elif se.get("estado") == 3:
+            pre_cumplido = False
+        item = {
+            "id": str(uuid4()),
+            "audit_id": audit_id,
+            "orden": idx + 1,
+            "titulo": se.get("paso_nombre", ""),
+            "descripcion": se.get("paso_descripcion", "") or "",
+            "puntos": se.get("paso_puntos", 1),
+            "origen": "paso",
+            "paso_id": se.get("paso_id"),
+            "step_execution_id": se.get("id"),
+            "es_critico": se.get("paso_es_critico", False),
+            "evidencia": se.get("evidencia"),
+            "evidencia_nombre": se.get("evidencia_nombre"),
+            "cumplido": pre_cumplido,
+            "puntos_obtenidos": se.get("paso_puntos", 1) if pre_cumplido is True else 0,
+            "comentarios": se.get("comentarios", "") or "",
+            "desviacion": "",
+            "accion_correctiva": "",
+            "responsable_id": None,
+            "responsable_nombre": "",
+            "fecha_compromiso": None,
+            "created_at": _now(),
+        }
+        await db.audit_items.insert_one(dict(item))
+        created += 1
+    await _recompute_totals(audit_id)
+    final = await db.audits.find_one({"id": audit_id}, {"_id": 0})
+    return {"audit": final, "items_creados": created}
+
+
 @router.get("/_helpers/executions-by-process/{proceso_id}")
 async def list_executions_by_process(proceso_id: str, current_user: dict = Depends(require_admin)):
     """Lista ejecuciones del proceso para escoger en auditoría histórica."""

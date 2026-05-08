@@ -39,4 +39,5 @@ export const auditAPI = {
 
   // Helpers
   executionsByProcess: (proceso_id) => api(`/api/audits/_helpers/executions-by-process/${proceso_id}`),
+  createSupervisionFromExecution: (ejecucion_id) => api(`/api/audits/from-execution/${ejecucion_id}`, { method: 'POST' }),
 };

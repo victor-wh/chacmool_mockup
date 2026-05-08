@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Loader2, Eye, Search, Filter } from 'lucide-react';
+import { auditAPI } from '../../services/auditApi';
+import { Loader2, Eye, Search, Filter, ClipboardCheck } from 'lucide-react';
 
 export default function AdminExecutions() {
   const [items, setItems] = useState([]);
   const [processes, setProcesses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [supervising, setSupervising] = useState(null);
   const [filterDate, setFilterDate] = useState('');
   const [filterProc, setFilterProc] = useState('');
   const [search, setSearch] = useState('');
@@ -25,6 +27,14 @@ export default function AdminExecutions() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterDate, filterProc]);
+
+  const startSupervision = async (exeId) => {
+    setSupervising(exeId);
+    try {
+      const res = await auditAPI.createSupervisionFromExecution(exeId);
+      navigate(`/audits/${res.audit.id}`);
+    } catch (e) { alert(e.message); setSupervising(null); }
+  };
 
   const filtered = items.filter(e => (e.codigo_ejecucion + e.proceso_nombre + e.staff_user_name).toLowerCase().includes(search.toLowerCase()));
 
@@ -96,7 +106,19 @@ export default function AdminExecutions() {
                     )}
                   </td>
                   <td className="px-6 py-3 text-right">
-                    <button onClick={(ev) => { ev.stopPropagation(); navigate(`/process/execution/${e.id}`); }} className="text-blue-600 hover:underline text-sm flex items-center gap-1"><Eye className="w-4 h-4"/>Ver</button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={(ev) => { ev.stopPropagation(); startSupervision(e.id); }}
+                        disabled={supervising === e.id}
+                        data-testid={`start-supervision-${e.id}`}
+                        title="Iniciar supervisión / auditoría de esta ejecución"
+                        className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg px-3 py-1 text-xs font-medium"
+                      >
+                        {supervising === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <ClipboardCheck className="w-3.5 h-3.5"/>}
+                        Supervisión
+                      </button>
+                      <button onClick={(ev) => { ev.stopPropagation(); navigate(`/process/execution/${e.id}`); }} className="text-blue-600 hover:underline text-sm flex items-center gap-1"><Eye className="w-4 h-4"/>Ver</button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -81,5 +81,8 @@ class Audit(AuditBase):
     porcentaje: float = 0.0
     total_items: int = 0
     items_evaluados: int = 0
+    criticos_omitidos: int = 0
+    aprobada: Optional[bool] = None
+    es_supervision: bool = False  # True si fue creada desde una ejecución
     created_at: datetime
     updated_at: Optional[datetime] = None

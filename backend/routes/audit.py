@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from models.audit import (
     Audit, AuditCreate, AuditUpdate,
     AuditItem, AuditItemCreate, AuditItemUpdate, ItemsFromStepsPayload,
+    PlanCorrectivoUpdate,
 )
 from middlewares.auth import db, require_admin
 
@@ -200,6 +201,77 @@ async def delete_audit(audit_id: str, current_user: dict = Depends(require_admin
     if res.deleted_count == 0:
         raise HTTPException(404, "Auditoría no encontrada")
     return {"deleted": True}
+
+
+# ============================================================
+# PLAN CORRECTIVO (a nivel auditoría)
+# ============================================================
+def _audit_failed(audit: dict) -> bool:
+    """Una auditoría 'falla' (requiere plan correctivo) si:
+    - porcentaje <= 70, O
+    - hay al menos un paso crítico omitido (cumplido=False)
+    """
+    pct = audit.get("porcentaje", 0) or 0
+    crit = audit.get("criticos_omitidos", 0) or 0
+    return pct <= 70 or crit > 0
+
+
+@router.put("/{audit_id}/plan-correctivo")
+async def update_plan_correctivo(
+    audit_id: str,
+    payload: PlanCorrectivoUpdate,
+    current_user: dict = Depends(require_admin),
+):
+    a = await db.audits.find_one({"id": audit_id}, {"_id": 0})
+    if not a:
+        raise HTTPException(404, "Auditoría no encontrada")
+    if a.get("estado") == "completada":
+        raise HTTPException(400, "No se puede modificar el plan correctivo de una auditoría completada")
+    if not _audit_failed(a):
+        raise HTTPException(
+            400,
+            "El plan correctivo solo aplica cuando la auditoría tiene ≤70% o pasos críticos omitidos",
+        )
+    current = a.get("plan_correctivo") or {
+        "descripcion_desviacion": "",
+        "causa_raiz": {
+            "porque_1": "", "porque_2": "", "porque_3": "",
+            "porque_4": "", "porque_5": "", "resultado": "",
+        },
+        "accion_correctiva": "",
+        "plan_implementacion": {
+            "que": "", "quien_id": None, "quien_nombre": "",
+            "cuando": None, "como_validar": "",
+        },
+        "resultado_esperado": "",
+        "evaluacion_eficacia": {
+            "fecha_verificacion": None, "evidencias": "",
+            "problema_recurrio": None, "comentarios": "",
+        },
+    }
+    raw = payload.dict(exclude_unset=True)
+    for key, val in raw.items():
+        if val is None:
+            continue
+        if isinstance(val, dict):
+            current[key] = {**(current.get(key) or {}), **val}
+        else:
+            current[key] = val
+    # Denormalizar nombre del responsable si cambió
+    pi = current.get("plan_implementacion") or {}
+    qid = pi.get("quien_id")
+    if qid:
+        st = await db.process_staff.find_one({"id": qid}, {"_id": 0})
+        pi["quien_nombre"] = (st or {}).get("user_name", "")
+    elif qid is None:
+        pi["quien_nombre"] = ""
+    current["plan_implementacion"] = pi
+    current["updated_at"] = _now()
+    await db.audits.update_one(
+        {"id": audit_id},
+        {"$set": {"plan_correctivo": current, "updated_at": _now()}},
+    )
+    return current
 
 
 # ============================================================

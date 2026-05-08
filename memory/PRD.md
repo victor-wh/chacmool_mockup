@@ -88,6 +88,30 @@ Módulo completo para gestionar procesos operacionales con ejecución diaria por
 - [ ] Considerar almacenamiento externo para evidencias Base64 (si crecen)
 - [ ] Carga desde Excel/CSV
 - [ ] Historial de evaluaciones
+- [ ] Integrar métricas del módulo Auditorías al Dashboard principal
+- [ ] Reportes/exportación PDF de auditorías
+
+## Módulo Auditorías — Feb 2026
+
+### Estado: ✅ Implementado y testeado
+Evaluación de procesos por administradores (presencial o histórica), con auto-cálculo de puntaje, banner aprobada/reprobada (≥70% y sin críticos omitidos), y plan de acción correctiva.
+
+### Funcionalidades Implementadas ✅
+- [x] Modelos: `Audit`, `AuditItem` con plan de acción por ítem (desviación / acción / responsable / fecha)
+- [x] Rutas `/api/audits/*` con CRUD, importación de pasos, supervisión desde ejecución
+- [x] Vistas React: `AuditList`, `AuditForm` (wizard), `AuditDetail` con tabla evaluadora
+- [x] Tabla split: "Realizado" (operario, informativo) vs "Confirmado" (auditor, decisión)
+- [x] Plan de acción por paso aparece dinámicamente sólo si auditor marca "No"
+- [x] **(Feb 2026) Plan Maestro de Acción Correctiva** — formulario completo a nivel auditoría que aparece cuando porcentaje ≤ 70% o hay críticos omitidos. Incluye:
+  - Descripción de la desviación
+  - Investigación de causa raíz (5 Porqués)
+  - Acción correctiva (elimina la causa)
+  - Plan de implementación (qué/quién/cuándo/cómo se valida)
+  - Resultado esperado
+  - Evaluación de eficacia (fecha verificación, evidencias, ¿problema recurrió?, comentarios)
+  - Auto-guardado con debounce, denormalización del nombre del responsable
+  - Editable mientras estado != completada; readonly al completar
+  - Endpoint dedicado: `PUT /api/audits/{id}/plan-correctivo` con merge profundo
 
 ---
 *Última actualización: Feb 2026*

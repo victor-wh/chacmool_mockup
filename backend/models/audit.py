@@ -3,7 +3,51 @@ Modelos del módulo Auditorías (evaluación de procesos).
 """
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+# ---------- Plan Correctivo (a nivel auditoría, cuando reprueba) ----------
+class CausaRaiz(BaseModel):
+    porque_1: str = ""
+    porque_2: str = ""
+    porque_3: str = ""
+    porque_4: str = ""
+    porque_5: str = ""
+    resultado: str = ""  # causa raíz identificada
+
+
+class PlanImplementacion(BaseModel):
+    que: str = ""
+    quien_id: Optional[str] = None
+    quien_nombre: str = ""
+    cuando: Optional[str] = None  # YYYY-MM-DD
+    como_validar: str = ""
+
+
+class EvaluacionEficacia(BaseModel):
+    fecha_verificacion: Optional[str] = None  # YYYY-MM-DD
+    evidencias: str = ""
+    problema_recurrio: Optional[bool] = None
+    comentarios: str = ""
+
+
+class PlanCorrectivo(BaseModel):
+    descripcion_desviacion: str = ""
+    causa_raiz: CausaRaiz = Field(default_factory=CausaRaiz)
+    accion_correctiva: str = ""
+    plan_implementacion: PlanImplementacion = Field(default_factory=PlanImplementacion)
+    resultado_esperado: str = ""
+    evaluacion_eficacia: EvaluacionEficacia = Field(default_factory=EvaluacionEficacia)
+    updated_at: Optional[datetime] = None
+
+
+class PlanCorrectivoUpdate(BaseModel):
+    descripcion_desviacion: Optional[str] = None
+    causa_raiz: Optional[CausaRaiz] = None
+    accion_correctiva: Optional[str] = None
+    plan_implementacion: Optional[PlanImplementacion] = None
+    resultado_esperado: Optional[str] = None
+    evaluacion_eficacia: Optional[EvaluacionEficacia] = None
 
 
 # ---------- Audit Item ----------
@@ -99,5 +143,6 @@ class Audit(AuditBase):
     criticos_omitidos: int = 0
     aprobada: Optional[bool] = None
     es_supervision: bool = False  # True si fue creada desde una ejecución
+    plan_correctivo: Optional[PlanCorrectivo] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

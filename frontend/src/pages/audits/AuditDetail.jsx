@@ -7,6 +7,7 @@ import {
   ClipboardCheck, ListChecks, AlertTriangle, Image as ImageIcon,
   ShieldCheck, ShieldX
 } from 'lucide-react';
+import AuditCorrectivePlan from './AuditCorrectivePlan';
 
 const STATE = {
   borrador:    { label: 'Borrador',    cls: 'bg-slate-100 text-slate-700' },
@@ -212,6 +213,16 @@ export default function AuditDetail() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Plan Maestro de Acción Correctiva — sólo si la auditoría está reprobando o tiene críticos omitidos */}
+      {audit.items_evaluados > 0 && (audit.porcentaje <= 70 || audit.criticos_omitidos > 0) && (
+        <AuditCorrectivePlan
+          audit={audit}
+          staffList={staffList}
+          readOnly={readOnly}
+          onSaved={(updated) => setAudit(prev => ({ ...prev, plan_correctivo: updated }))}
+        />
       )}
 
       {/* Items table */}

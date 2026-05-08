@@ -40,4 +40,8 @@ export const auditAPI = {
   // Helpers
   executionsByProcess: (proceso_id) => api(`/api/audits/_helpers/executions-by-process/${proceso_id}`),
   createSupervisionFromExecution: (ejecucion_id) => api(`/api/audits/from-execution/${ejecucion_id}`, { method: 'POST' }),
+
+  // Plan correctivo
+  updatePlanCorrectivo: (audit_id, payload) =>
+    api(`/api/audits/${audit_id}/plan-correctivo`, { method: 'PUT', body: JSON.stringify(payload) }),
 };

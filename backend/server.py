@@ -29,6 +29,7 @@ from routes.kpis import router as kpis_router
 from routes.empleado_a import router as empleado_a_router
 from routes.pdi import router as pdi_router
 from routes.process import router as process_router
+from routes.process_schedule import router as process_schedule_router
 from routes.audit import router as audit_router
 
 # Include routers
@@ -40,6 +41,7 @@ app.include_router(kpis_router)
 app.include_router(empleado_a_router)
 app.include_router(pdi_router)
 app.include_router(process_router)
+app.include_router(process_schedule_router)
 app.include_router(audit_router)
 
 @app.get("/api/health")

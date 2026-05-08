@@ -28,6 +28,7 @@ import ProcessTypes from './pages/process/ProcessTypes';
 import ConsequenceSystems from './pages/process/ConsequenceSystems';
 import ProcessDashboard from './pages/process/ProcessDashboard';
 import AdminExecutions from './pages/process/AdminExecutions';
+import ProcessSchedule from './pages/process/ProcessSchedule';
 import { 
   Users, 
   Target, 
@@ -92,6 +93,7 @@ import {
   LayoutGrid,
   List,
   AlertCircle,
+  CalendarClock,
   LogOut
 } from "lucide-react";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart as RechartsPie, Pie, Cell } from 'recharts';
@@ -1015,6 +1017,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'], dropdown: 'process-tree' },
     { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
     { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
+    { path: "/process/schedule", icon: CalendarClock, label: "Programación", description: "Calendario y tabla", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
     { path: "/process/admin/types", icon: Sliders, label: "Tipos de Proceso", description: "Categorías y colores", roles: ['admin'] },
     { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'] },
@@ -1542,6 +1545,7 @@ const AppContent = () => {
             <Route path="/process/my" element={<MyProcesses />} />
             <Route path="/process/my-assigned-steps" element={<MyAssignedSteps />} />
             <Route path="/process/my-executions" element={<MyExecutions />} />
+            <Route path="/process/schedule" element={<ProcessSchedule />} />
             <Route path="/audits" element={<AuditList />} />
             <Route path="/audits/new" element={<AuditForm />} />
             <Route path="/audits/:id" element={<AuditDetail />} />

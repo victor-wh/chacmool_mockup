@@ -90,6 +90,8 @@ Módulo completo para gestionar procesos operacionales con ejecución diaria por
 - [ ] Historial de evaluaciones
 - [ ] Integrar métricas del módulo Auditorías al Dashboard principal
 - [ ] Reportes/exportación PDF de auditorías
+- [ ] Programación: reglas custom ("último viernes del mes", "miércoles + último viernes")
+- [ ] Programación: notificaciones al responsable cuando se acerca un slot
 
 ## Módulo Auditorías — Feb 2026
 
@@ -112,6 +114,25 @@ Evaluación de procesos por administradores (presencial o histórica), con auto-
   - Auto-guardado con debounce, denormalización del nombre del responsable
   - Editable mientras estado != completada; readonly al completar
   - Endpoint dedicado: `PUT /api/audits/{id}/plan-correctivo` con merge profundo
+
+## Módulo Programación de Procesos — Feb 2026
+
+### Estado: ✅ Implementado y testeado
+Programación periódica de procesos con responsable asignado, calendario tipo Planner y tabla de ejecuciones programadas.
+
+### Funcionalidades Implementadas ✅
+- [x] Modelo: `ProcessProgramacion` (tipo, día/mes/hora, criticidad, activa) y `responsable_id` a nivel proceso
+- [x] Colección `process_scheduled_executions` (id, fecha, hora, proceso, responsable, criticidad, estado)
+- [x] Frecuencias: diaria, semanal (día), mensual (día), trimestral (Ene/Abr/Jul/Oct + día), anual (mes/día), eventual
+- [x] Pre-generación automática al crear/editar proceso (3 meses adelante, 1 mes atrás)
+- [x] Endpoint `POST /api/process-schedule/regenerate` para forzar regeneración manual
+- [x] `GET /api/process-schedule` con filtros: rango fechas, proceso, responsable, estado, mine
+- [x] `POST /api/process-schedule/{id}/start` crea ProcessExecution y vincula al slot
+- [x] Visibilidad: admin ve todo; empleado solo lo suyo (auto-filtrado por staff_id)
+- [x] Auto-marca como 'atrasada' los slots vencidos al consultar
+- [x] Página `ProcessSchedule.jsx` con vista Calendario (mes) + Tabla, filtros, navegación de mes, modal de día
+- [x] Sección "Programación periódica" en `ProcessForm` con responsable, tipo, día, hora, criticidad
+- [x] Sidebar entry "Programación" para admin y empleado
 
 ---
 *Última actualización: Feb 2026*

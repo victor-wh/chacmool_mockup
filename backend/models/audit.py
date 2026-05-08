@@ -27,14 +27,29 @@ class AuditItemUpdate(BaseModel):
     puntos: Optional[int] = None
     cumplido: Optional[bool] = None
     comentarios: Optional[str] = None
+    desviacion: Optional[str] = None
+    accion_correctiva: Optional[str] = None
+    responsable_id: Optional[str] = None
+    fecha_compromiso: Optional[str] = None
 
 
 class AuditItem(AuditItemBase):
     id: str
     audit_id: str
-    cumplido: Optional[bool] = None  # None = no evaluado, True/False = Si/No
+    cumplido: Optional[bool] = None  # confirmación del auditor
+    realizado_reportado: Optional[bool] = None  # informativo: lo que reportó el operario
     puntos_obtenidos: int = 0
     comentarios: str = ""
+    es_critico: bool = False
+    evidencia: Optional[str] = None  # base64 si proviene de step_execution
+    evidencia_nombre: Optional[str] = None
+    step_execution_id: Optional[str] = None
+    # Plan de acción (sólo aplica si cumplido == False)
+    desviacion: str = ""
+    accion_correctiva: str = ""
+    responsable_id: Optional[str] = None
+    responsable_nombre: Optional[str] = ""
+    fecha_compromiso: Optional[str] = None
     created_at: datetime
 
 

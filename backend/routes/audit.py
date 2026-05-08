@@ -370,12 +370,13 @@ async def create_supervision_from_execution(
     for idx, se in enumerate(step_execs):
         if not se.get("paso_auditable", True):
             continue
-        # Si la pre-evaluación dice estado=2 (Completado) → cumplido=True; estado=3 (Error/Omitido) → False
-        pre_cumplido = None
+        # Snapshot del estado reportado por el operario (solo informativo).
+        # El auditor debe confirmar explícitamente cumplido a través de la columna correspondiente.
+        realizado_reportado = None
         if se.get("estado") == 2:
-            pre_cumplido = True
+            realizado_reportado = True
         elif se.get("estado") == 3:
-            pre_cumplido = False
+            realizado_reportado = False
         item = {
             "id": str(uuid4()),
             "audit_id": audit_id,
@@ -389,8 +390,9 @@ async def create_supervision_from_execution(
             "es_critico": se.get("paso_es_critico", False),
             "evidencia": se.get("evidencia"),
             "evidencia_nombre": se.get("evidencia_nombre"),
-            "cumplido": pre_cumplido,
-            "puntos_obtenidos": se.get("paso_puntos", 1) if pre_cumplido is True else 0,
+            "cumplido": None,  # auditor debe confirmar
+            "realizado_reportado": realizado_reportado,
+            "puntos_obtenidos": 0,
             "comentarios": se.get("comentarios", "") or "",
             "desviacion": "",
             "accion_correctiva": "",

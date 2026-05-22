@@ -92,26 +92,19 @@ export const processAPI = {
   // ---------- My Assigned Steps (colaboración) ----------
   getMyAssignedSteps: () => api('/api/process/my-assigned-steps'),
 
-  // ---------- Programación / Schedule ----------
-  listSchedule: ({ from, to, procesoId, responsableId, estado, mine } = {}) => {
-    const params = new URLSearchParams();
-    if (from) params.set('fecha_desde', from);
-    if (to) params.set('fecha_hasta', to);
+  // ---------- Calendar ----------
+  listSchedules: () => api('/api/calendar/schedules'),
+  getSchedule: (procesoId) => api(`/api/calendar/schedules/${procesoId}`),
+  upsertSchedule: (procesoId, payload) =>
+    api(`/api/calendar/schedules/${procesoId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteSchedule: (procesoId) =>
+    api(`/api/calendar/schedules/${procesoId}`, { method: 'DELETE' }),
+  listEvents: ({ from, to, procesoId, responsableId, mine } = {}) => {
+    const params = new URLSearchParams({ fecha_desde: from, fecha_hasta: to });
     if (procesoId) params.set('proceso_id', procesoId);
     if (responsableId) params.set('responsable_id', responsableId);
-    if (estado) params.set('estado', estado);
     if (mine) params.set('mine', 'true');
-    const q = params.toString();
-    return api(`/api/process-schedule${q ? `?${q}` : ''}`);
+    return api(`/api/calendar/events?${params.toString()}`);
   },
-  startScheduleSlot: (slotId) => api(`/api/process-schedule/${slotId}/start`, { method: 'POST' }),
-  deleteScheduleSlot: (slotId) => api(`/api/process-schedule/${slotId}`, { method: 'DELETE' }),
-  regenerateSchedule: ({ procesoId, monthsAhead = 3, monthsBack = 1 } = {}) => {
-    const params = new URLSearchParams();
-    if (procesoId) params.set('proceso_id', procesoId);
-    params.set('months_ahead', String(monthsAhead));
-    params.set('months_back', String(monthsBack));
-    return api(`/api/process-schedule/regenerate?${params.toString()}`, { method: 'POST' });
-  },
-  scheduleTodaySummary: () => api('/api/process-schedule/_helpers/today-summary'),
+  listProcessesWithoutSchedule: () => api('/api/calendar/processes-without-schedule'),
 };

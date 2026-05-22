@@ -83,18 +83,6 @@ class SystemOfConsequences(SystemOfConsequencesBase):
 
 
 # ---------- Process ----------
-class ProcessProgramacion(BaseModel):
-    """Configuración de programación periódica de un proceso."""
-    tipo: str = "eventual"  # 'diario'|'semanal'|'mensual'|'trimestral'|'anual'|'eventual'
-    dia_semana: Optional[int] = None  # 0=Lunes ... 6=Domingo (semanal)
-    dia_mes: Optional[int] = None  # 1..31 (mensual / trimestral / anual)
-    mes: Optional[int] = None  # 1..12 (anual)
-    meses_trimestre: Optional[List[int]] = None  # default [1,4,7,10] (trimestral)
-    hora: Optional[str] = None  # "HH:MM"
-    criticidad: Optional[str] = "medio"  # 'alto' | 'medio' | 'bajo'
-    activa: bool = True
-
-
 class ProcessBase(BaseModel):
     nombre: str
     descripcion: Optional[str] = ""
@@ -103,8 +91,6 @@ class ProcessBase(BaseModel):
     tipo_id: Optional[str] = None
     sistema_consecuencias_id: Optional[str] = None
     activo: bool = True
-    responsable_id: Optional[str] = None  # staff a cargo del proceso (programación)
-    programacion: Optional[ProcessProgramacion] = None
 
 
 class ProcessCreate(ProcessBase):
@@ -119,8 +105,6 @@ class ProcessUpdate(BaseModel):
     tipo_id: Optional[str] = None
     sistema_consecuencias_id: Optional[str] = None
     activo: Optional[bool] = None
-    responsable_id: Optional[str] = None
-    programacion: Optional[ProcessProgramacion] = None
 
 
 class Process(ProcessBase):
@@ -131,7 +115,6 @@ class Process(ProcessBase):
     tipo_color_fondo: Optional[str] = "#3B82F6"
     tipo_color_texto: Optional[str] = "#FFFFFF"
     sistema_consecuencias_nombre: Optional[str] = ""
-    responsable_nombre: Optional[str] = ""
     total_pasos: int = 0
     created_at: datetime
 
@@ -228,27 +211,3 @@ class StepExecution(BaseModel):
     evidencia_nombre: Optional[str] = None
     comentarios: str = ""
     fecha_actualizacion: Optional[datetime] = None
-
-
-# ---------- Scheduled Execution ----------
-class ScheduledExecution(BaseModel):
-    """Una ejecución programada (slot del calendario)."""
-    id: str
-    proceso_id: str
-    proceso_codigo: str
-    proceso_nombre: str
-    tipo_nombre: Optional[str] = ""
-    tipo_color_fondo: Optional[str] = "#3B82F6"
-    tipo_color_texto: Optional[str] = "#FFFFFF"
-    area_id: Optional[str] = None
-    area_nombre: Optional[str] = ""
-    responsable_id: Optional[str] = None
-    responsable_nombre: Optional[str] = ""
-    fecha: str  # YYYY-MM-DD
-    hora: Optional[str] = None  # HH:MM
-    criticidad: str = "medio"  # alto | medio | bajo
-    estado: str = "programada"  # programada | iniciada | completada | atrasada
-    ejecucion_id: Optional[str] = None
-    ejecucion_codigo: Optional[str] = None
-    created_at: datetime
-

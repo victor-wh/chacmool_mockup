@@ -1,0 +1,624 @@
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import {
+  Loader2, ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, X,
+  Repeat, Trash2, Pencil, Filter, Search,
+} from 'lucide-react';
+import { processAPI } from '../../services/processApi';
+import { useAuth } from '../../contexts/AuthContext';
+
+const DOW_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const MES_LABELS = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+const DIAS_SEMANA = [
+  { v: 0, lbl: 'Lunes' }, { v: 1, lbl: 'Martes' }, { v: 2, lbl: 'Miércoles' },
+  { v: 3, lbl: 'Jueves' }, { v: 4, lbl: 'Viernes' }, { v: 5, lbl: 'Sábado' },
+  { v: 6, lbl: 'Domingo' },
+];
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+const TIPO_OPTIONS = [
+  { v: 'no_repite', lbl: 'No se repite' },
+  { v: 'diario', lbl: 'Diariamente' },
+  { v: 'laborales', lbl: 'Días laborales (Lun a Vie)' },
+  { v: 'semanal', lbl: 'Semanalmente' },
+  { v: 'mensual', lbl: 'Mensualmente' },
+  { v: 'anual', lbl: 'Anualmente' },
+];
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function fmt(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function endOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function calendarGridStart(d) {
+  const first = startOfMonth(d);
+  const dow = (first.getDay() + 6) % 7; // Mon=0, Sun=6
+  return addDays(first, -dow);
+}
+function calendarGridEnd(d) {
+  const last = endOfMonth(d);
+  const dow = (last.getDay() + 6) % 7;
+  return addDays(last, 6 - dow);
+}
+
+export default function ProcessCalendar() {
+  const { isAdmin } = useAuth();
+  const [cursor, setCursor] = useState(new Date());
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [staffList, setStaffList] = useState([]);
+  const [processes, setProcesses] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [unscheduled, setUnscheduled] = useState([]);
+  const [filters, setFilters] = useState({ proceso_id: '', responsable_id: '', mine: false });
+  const [search, setSearch] = useState('');
+  const [openSchedule, setOpenSchedule] = useState(null); // { proceso, schedule|null }
+  const [openDay, setOpenDay] = useState(null); // YYYY-MM-DD
+
+  const range = useMemo(() => ({
+    from: fmt(calendarGridStart(cursor)),
+    to: fmt(calendarGridEnd(cursor)),
+  }), [cursor]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const ev = await processAPI.listEvents({
+        from: range.from, to: range.to,
+        procesoId: filters.proceso_id || undefined,
+        responsableId: filters.responsable_id || undefined,
+        mine: filters.mine || undefined,
+      });
+      setEvents(ev || []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  }, [range.from, range.to, filters]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [s, p, sch] = await Promise.all([
+          processAPI.listStaff().catch(() => []),
+          processAPI.listProcesses({ activo: true }),
+          processAPI.listSchedules(),
+        ]);
+        setStaffList(s || []);
+        setProcesses(p || []);
+        setSchedules(sch || []);
+        if (isAdmin) {
+          const u = await processAPI.listProcessesWithoutSchedule().catch(() => []);
+          setUnscheduled(u);
+        }
+      } catch (e) { console.error(e); }
+    })();
+  }, [isAdmin]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const eventsByDate = useMemo(() => {
+    const m = {};
+    events.forEach(e => { (m[e.fecha] = m[e.fecha] || []).push(e); });
+    return m;
+  }, [events]);
+
+  const refreshSchedules = async () => {
+    const sch = await processAPI.listSchedules();
+    setSchedules(sch || []);
+    if (isAdmin) {
+      const u = await processAPI.listProcessesWithoutSchedule().catch(() => []);
+      setUnscheduled(u);
+    }
+    load();
+  };
+
+  const handleSave = async (procesoId, payload) => {
+    await processAPI.upsertSchedule(procesoId, payload);
+    setOpenSchedule(null);
+    refreshSchedules();
+  };
+  const handleDelete = async (procesoId) => {
+    if (!window.confirm('¿Quitar la programación de este proceso?')) return;
+    await processAPI.deleteSchedule(procesoId);
+    setOpenSchedule(null);
+    refreshSchedules();
+  };
+
+  const filteredUnscheduled = unscheduled.filter(p =>
+    (p.codigo + ' ' + p.nombre).toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="animate-fade-in" data-testid="process-calendar-page">
+      <header className="mb-5">
+        <h1 className="text-3xl font-semibold text-slate-900 tracking-tight" style={{ fontFamily: 'Outfit' }}>
+          Calendario de procesos
+        </h1>
+        <p className="text-slate-500 mt-1 text-sm">
+          Visualiza cuándo se debe ejecutar cada proceso según su frecuencia.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+        {/* ============ CALENDAR ============ */}
+        <div>
+          {/* Toolbar */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-3 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCursor(new Date())} className="text-xs border border-slate-200 hover:bg-slate-50 rounded-lg px-3 py-1.5" data-testid="cal-today-btn">
+                Hoy
+              </button>
+              <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} data-testid="cal-prev-btn" className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <ChevronLeft className="w-4 h-4"/>
+              </button>
+              <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} data-testid="cal-next-btn" className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <ChevronRight className="w-4 h-4"/>
+              </button>
+              <span className="ml-2 text-sm font-semibold text-slate-800 capitalize">
+                {MES_LABELS[cursor.getMonth()]} de {cursor.getFullYear()}
+              </span>
+            </div>
+
+            <div className="ml-auto flex items-center flex-wrap gap-2 text-xs">
+              <Filter className="w-3.5 h-3.5 text-slate-400"/>
+              <select
+                value={filters.proceso_id}
+                onChange={e => setFilters({ ...filters, proceso_id: e.target.value })}
+                className="border border-slate-200 rounded-lg px-2 py-1 bg-white"
+                data-testid="cal-filter-process"
+              >
+                <option value="">Todos los procesos</option>
+                {processes.map(p => <option key={p.id} value={p.id}>{p.codigo}</option>)}
+              </select>
+              {isAdmin && (
+                <select
+                  value={filters.responsable_id}
+                  onChange={e => setFilters({ ...filters, responsable_id: e.target.value })}
+                  className="border border-slate-200 rounded-lg px-2 py-1 bg-white"
+                  data-testid="cal-filter-staff"
+                >
+                  <option value="">Todos los responsables</option>
+                  {staffList.map(s => <option key={s.id} value={s.id}>{s.user_name}</option>)}
+                </select>
+              )}
+              {isAdmin && (
+                <label className="ml-1 inline-flex items-center gap-1 cursor-pointer">
+                  <input type="checkbox" checked={filters.mine} onChange={e => setFilters({ ...filters, mine: e.target.checked })}/>
+                  Solo mías
+                </label>
+              )}
+              <span className="text-slate-400 ml-1">{events.length} evento(s)</span>
+            </div>
+          </div>
+
+          {/* Grid */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+              {DOW_LABELS.map(l => (
+                <div key={l} className="text-center text-[11px] font-semibold uppercase text-slate-500 py-2 tracking-wider">{l}</div>
+              ))}
+            </div>
+            {loading ? (
+              <div className="p-10 text-center text-slate-400 inline-flex items-center gap-2 w-full justify-center">
+                <Loader2 className="w-4 h-4 animate-spin"/>Cargando…
+              </div>
+            ) : (
+              <CalendarGrid cursor={cursor} eventsByDate={eventsByDate} onOpenDay={setOpenDay}/>
+            )}
+          </div>
+        </div>
+
+        {/* ============ RIGHT SIDEBAR ============ */}
+        <aside className="bg-white border border-slate-200 rounded-2xl p-4 self-start sticky top-4 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+          {isAdmin ? (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Sin programar</h2>
+                <span className="text-xs text-slate-400">{filteredUnscheduled.length}</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">Procesos activos que aún no tienen calendario. Click → asignar frecuencia.</p>
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"/>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar proceso..."
+                  className="w-full text-xs border border-slate-200 rounded-lg pl-7 pr-2 py-1.5"
+                />
+              </div>
+              <div className="overflow-y-auto flex-1 space-y-1.5 pr-1">
+                {filteredUnscheduled.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">
+                    {unscheduled.length === 0 ? 'Todos los procesos están programados.' : 'Sin coincidencias.'}
+                  </p>
+                )}
+                {filteredUnscheduled.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setOpenSchedule({ proceso: p, schedule: null })}
+                    data-testid={`cal-schedule-process-${p.id}`}
+                    className="w-full text-left border border-slate-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/30 group transition-colors"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className="text-[9px] font-mono px-1 py-0.5 rounded text-white"
+                        style={{ background: p.tipo_color_fondo || '#475569' }}
+                      >
+                        {p.codigo}
+                      </span>
+                      <Plus className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 ml-auto flex-shrink-0"/>
+                    </div>
+                    <p className="text-xs font-medium text-slate-800 mt-1 line-clamp-2">{p.nombre}</p>
+                    {p.area_nombre && <p className="text-[10px] text-slate-400">{p.area_nombre}</p>}
+                  </button>
+                ))}
+              </div>
+
+              <div className="pt-3 mt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Programados</h2>
+                  <span className="text-xs text-slate-400">{schedules.length}</span>
+                </div>
+                <div className="overflow-y-auto max-h-64 space-y-1.5 pr-1">
+                  {schedules.length === 0 && (
+                    <p className="text-xs text-slate-400 py-2 text-center">Aún no hay procesos programados.</p>
+                  )}
+                  {schedules.map(s => (
+                    <button
+                      key={s.proceso_id}
+                      onClick={() => setOpenSchedule({ proceso: { id: s.proceso_id, codigo: s.proceso_codigo, nombre: s.proceso_nombre, tipo_color_fondo: s.tipo_color_fondo, area_nombre: s.area_nombre }, schedule: s })}
+                      data-testid={`cal-edit-schedule-${s.proceso_id}`}
+                      className="w-full text-left border border-slate-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/30 group"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-[9px] font-mono px-1 py-0.5 rounded text-white" style={{ background: s.tipo_color_fondo || '#475569' }}>
+                          {s.proceso_codigo}
+                        </span>
+                        <Pencil className="w-3 h-3 text-slate-400 group-hover:text-blue-600 ml-auto flex-shrink-0"/>
+                      </div>
+                      <p className="text-xs font-medium text-slate-800 mt-1 line-clamp-1">{s.proceso_nombre}</p>
+                      <p className="text-[10px] text-slate-500 inline-flex items-center gap-1 mt-0.5">
+                        <Repeat className="w-2.5 h-2.5"/>{describeSchedule(s)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Mis procesos</h2>
+                <span className="text-xs text-slate-400">{schedules.length}</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">Procesos con calendario asignado a tu nombre.</p>
+              <div className="overflow-y-auto flex-1 space-y-1.5 pr-1">
+                {schedules.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">No tienes procesos programados.</p>
+                )}
+                {schedules.map(s => (
+                  <div key={s.proceso_id} className="border border-slate-200 rounded-lg p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded text-white" style={{ background: s.tipo_color_fondo || '#475569' }}>
+                        {s.proceso_codigo}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-800 mt-1">{s.proceso_nombre}</p>
+                    <p className="text-[10px] text-slate-500 inline-flex items-center gap-1 mt-0.5">
+                      <Repeat className="w-2.5 h-2.5"/>{describeSchedule(s)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
+
+      {/* Modals */}
+      {openSchedule && (
+        <ScheduleModal
+          proceso={openSchedule.proceso}
+          schedule={openSchedule.schedule}
+          staffList={staffList}
+          onClose={() => setOpenSchedule(null)}
+          onSave={handleSave}
+          onDelete={handleDelete}
+        />
+      )}
+      {openDay && (
+        <DayModal
+          date={openDay}
+          events={eventsByDate[openDay] || []}
+          onClose={() => setOpenDay(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ===========================================================
+function CalendarGrid({ cursor, eventsByDate, onOpenDay }) {
+  const start = calendarGridStart(cursor);
+  const end = calendarGridEnd(cursor);
+  const days = [];
+  for (let d = new Date(start); d <= end; d = addDays(d, 1)) days.push(new Date(d));
+  const today = fmt(new Date());
+  return (
+    <div className="grid grid-cols-7">
+      {days.map((d, i) => {
+        const ds = fmt(d);
+        const inMonth = d.getMonth() === cursor.getMonth();
+        const isToday = ds === today;
+        const list = eventsByDate[ds] || [];
+        const visible = list.slice(0, 3);
+        const more = list.length - visible.length;
+        return (
+          <div
+            key={i}
+            data-testid={`cal-day-${ds}`}
+            onClick={() => list.length && onOpenDay(ds)}
+            className={`min-h-[110px] border-b border-r border-slate-100 p-1.5 text-xs ${inMonth ? 'bg-white' : 'bg-slate-50/40 text-slate-300'} ${list.length ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center' : (inMonth ? 'text-slate-700' : 'text-slate-300')}`}>
+                {d.getDate()}
+              </span>
+              {list.length > 0 && (<span className="text-[9px] text-slate-400">{list.length}</span>)}
+            </div>
+            <div className="space-y-0.5">
+              {visible.map(ev => (
+                <div
+                  key={ev.id}
+                  className="text-[10px] rounded px-1.5 py-0.5 truncate font-medium"
+                  style={{ background: ev.tipo_color_fondo || '#1F2937', color: ev.tipo_color_texto || '#fff' }}
+                  title={`${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
+                >
+                  {ev.hora && <span className="opacity-80 mr-1">{ev.hora}</span>}
+                  {ev.proceso_codigo}
+                </div>
+              ))}
+              {more > 0 && <div className="text-[10px] text-slate-500 italic">+ {more} más</div>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ===========================================================
+function describeSchedule(s) {
+  if (!s) return '';
+  switch (s.tipo) {
+    case 'no_repite': return `Único: ${s.fecha_unica || '—'}${s.hora ? ` · ${s.hora}` : ''}`;
+    case 'diario': return `Diario${s.hora ? ` · ${s.hora}` : ''}`;
+    case 'laborales': return `Lun-Vie${s.hora ? ` · ${s.hora}` : ''}`;
+    case 'semanal': {
+      const lbl = DIAS_SEMANA.find(d => d.v === s.dia_semana)?.lbl || '—';
+      return `Semanal · ${lbl}${s.hora ? ` · ${s.hora}` : ''}`;
+    }
+    case 'mensual': return `Mensual · día ${s.dia_mes}${s.hora ? ` · ${s.hora}` : ''}`;
+    case 'anual': return `Anual · ${s.dia_mes} ${MESES[(s.mes || 1) - 1]}${s.hora ? ` · ${s.hora}` : ''}`;
+    default: return '';
+  }
+}
+
+// ===========================================================
+function ScheduleModal({ proceso, schedule, staffList, onClose, onSave, onDelete }) {
+  const [form, setForm] = useState({
+    tipo: schedule?.tipo || 'no_repite',
+    fecha_unica: schedule?.fecha_unica || '',
+    dia_semana: schedule?.dia_semana ?? 0,
+    dia_mes: schedule?.dia_mes ?? 1,
+    mes: schedule?.mes ?? 1,
+    hora: schedule?.hora || '',
+    responsable_id: schedule?.responsable_id || '',
+    activa: schedule?.activa ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (patch) => setForm(f => ({ ...f, ...patch }));
+
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    if (form.tipo === 'no_repite' && !form.fecha_unica) { alert('Selecciona una fecha'); return; }
+    setSaving(true);
+    try {
+      await onSave(proceso.id, {
+        tipo: form.tipo,
+        fecha_unica: form.tipo === 'no_repite' ? form.fecha_unica : null,
+        dia_semana: form.tipo === 'semanal' ? Number(form.dia_semana) : null,
+        dia_mes: ['mensual', 'anual'].includes(form.tipo) ? Number(form.dia_mes) : null,
+        mes: form.tipo === 'anual' ? Number(form.mes) : null,
+        hora: form.hora || null,
+        responsable_id: form.responsable_id || null,
+        activa: !!form.activa,
+      });
+    } catch (err) { alert(err.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10" onClick={e => e.stopPropagation()}>
+        <form onSubmit={submit} className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
+          <header className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-mono text-slate-400">{proceso.codigo}</p>
+              <h3 className="font-semibold text-slate-900 truncate" style={{ fontFamily: 'Outfit' }}>
+                {schedule ? 'Editar programación' : 'Programar proceso'}
+              </h3>
+              <p className="text-xs text-slate-500 truncate">{proceso.nombre}</p>
+            </div>
+            <button type="button" onClick={onClose} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
+          </header>
+
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Repetir</label>
+              <select
+                data-testid="schedule-tipo"
+                value={form.tipo}
+                onChange={e => set({ tipo: e.target.value })}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+              >
+                {TIPO_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.lbl}</option>)}
+              </select>
+            </div>
+
+            {form.tipo === 'no_repite' && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Fecha</label>
+                <input
+                  data-testid="schedule-fecha-unica"
+                  type="date"
+                  value={form.fecha_unica}
+                  onChange={e => set({ fecha_unica: e.target.value })}
+                  required
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                />
+              </div>
+            )}
+
+            {form.tipo === 'semanal' && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Día de la semana</label>
+                <select
+                  value={form.dia_semana}
+                  onChange={e => set({ dia_semana: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+                >
+                  {DIAS_SEMANA.map(d => <option key={d.v} value={d.v}>{d.lbl}</option>)}
+                </select>
+              </div>
+            )}
+
+            {(form.tipo === 'mensual' || form.tipo === 'anual') && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Día del mes</label>
+                  <input
+                    type="number" min={1} max={31}
+                    value={form.dia_mes}
+                    onChange={e => set({ dia_mes: Number(e.target.value) })}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+                {form.tipo === 'anual' && (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Mes</label>
+                    <select
+                      value={form.mes}
+                      onChange={e => set({ mes: Number(e.target.value) })}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+                    >
+                      {MESES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Hora (opcional)</label>
+                <input
+                  type="time"
+                  value={form.hora}
+                  onChange={e => set({ hora: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Responsable</label>
+                <select
+                  data-testid="schedule-responsable"
+                  value={form.responsable_id}
+                  onChange={e => set({ responsable_id: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">— Sin responsable —</option>
+                  {staffList.map(s => <option key={s.id} value={s.id}>{s.user_name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.activa} onChange={e => set({ activa: e.target.checked })}/>
+              <span className="text-sm text-slate-700">Programación activa</span>
+            </label>
+          </div>
+
+          <footer className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            {schedule ? (
+              <button
+                type="button"
+                onClick={() => onDelete(proceso.id)}
+                data-testid="schedule-delete-btn"
+                className="text-xs text-red-600 hover:bg-red-50 rounded-lg px-3 py-1.5 inline-flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5"/>Quitar
+              </button>
+            ) : <span/>}
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+              <button
+                type="submit"
+                disabled={saving}
+                data-testid="schedule-save-btn"
+                className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-4 py-1.5 text-sm font-medium inline-flex items-center gap-1 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Plus className="w-3.5 h-3.5"/>}
+                {schedule ? 'Guardar' : 'Programar'}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================
+function DayModal({ date, events, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl">
+          <header className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div className="inline-flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-slate-500"/>
+              <h3 className="font-semibold text-slate-900">{date} · {events.length} evento(s)</h3>
+            </div>
+            <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
+          </header>
+          <div className="p-5 space-y-2 max-h-[70vh] overflow-y-auto">
+            {events.map(ev => (
+              <div key={ev.id} className="border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+                <span
+                  className="text-[9px] font-mono px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                  style={{ background: ev.tipo_color_fondo || '#475569' }}
+                >
+                  {ev.proceso_codigo}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{ev.proceso_nombre}</p>
+                  <p className="text-[11px] text-slate-500 inline-flex items-center gap-2">
+                    {ev.hora && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3"/>{ev.hora}</span>}
+                    {ev.responsable_nombre && <span>· {ev.responsable_nombre}</span>}
+                    {ev.area_nombre && <span>· {ev.area_nombre}</span>}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

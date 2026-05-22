@@ -243,31 +243,8 @@ async def _enrich_process(p: dict) -> dict:
         p["sistema_consecuencias_nombre"] = (sc or {}).get("nombre", "")
     else:
         p["sistema_consecuencias_nombre"] = ""
-    if p.get("responsable_id"):
-        st = await db.process_staff.find_one({"id": p["responsable_id"]}, {"_id": 0})
-        p["responsable_nombre"] = (st or {}).get("user_name", "")
-    else:
-        p["responsable_nombre"] = ""
     p["total_pasos"] = await db.process_steps.count_documents({"proceso_id": p["id"]})
     return p
-
-
-async def _regenerate_process_slots(proc: dict):
-    """Regenera slots futuros para un proceso (usa la misma lógica del módulo schedule)."""
-    from routes.process_schedule import _generate_for_process, _refresh_atrasadas
-    today = datetime.now().date()
-    from datetime import timedelta as _td
-    d_from = today.replace(day=1)
-    fy, fm = today.year, today.month + 6
-    while fm > 12:
-        fm -= 12
-        fy += 1
-    import calendar as _cal
-    last = _cal.monthrange(fy, fm)[1]
-    from datetime import date as _date
-    d_to = _date(fy, fm, last)
-    await _generate_for_process(proc, d_from, d_to, replace=True)
-    await _refresh_atrasadas()
 
 
 @router.get("/processes", response_model=List[Process])
@@ -324,42 +301,31 @@ async def create_process(payload: ProcessCreate, current_user: dict = Depends(re
         "tipo_id": payload.tipo_id,
         "sistema_consecuencias_id": payload.sistema_consecuencias_id,
         "activo": payload.activo,
-        "responsable_id": payload.responsable_id,
-        "programacion": payload.programacion.dict() if payload.programacion else None,
         "area_nombre": "",
         "tipo_nombre": "",
         "tipo_color_fondo": "#3B82F6",
         "tipo_color_texto": "#FFFFFF",
         "sistema_consecuencias_nombre": "",
-        "responsable_nombre": "",
         "total_pasos": 0,
         "created_at": _now(),
     }
     await db.process_definitions.insert_one(new_p)
     enriched = await _enrich_process(new_p)
     await db.process_definitions.update_one({"id": new_p["id"]}, {"$set": enriched})
-    if enriched.get("programacion"):
-        await _regenerate_process_slots(enriched)
     return enriched
 
 
 @router.put("/processes/{process_id}", response_model=Process)
 async def update_process(process_id: str, payload: ProcessUpdate, current_user: dict = Depends(require_admin)):
     raw = payload.dict(exclude_unset=True)
-    nullable_fields = {"sistema_consecuencias_id", "area_id", "tipo_id", "responsable_id", "programacion"}
+    nullable_fields = {"sistema_consecuencias_id", "area_id", "tipo_id"}
     update_data = {k: v for k, v in raw.items() if v is not None or k in nullable_fields}
-    # Normalizar programacion (Pydantic -> dict)
-    if "programacion" in update_data and update_data["programacion"] is not None and not isinstance(update_data["programacion"], dict):
-        update_data["programacion"] = update_data["programacion"].dict() if hasattr(update_data["programacion"], "dict") else dict(update_data["programacion"])
     res = await db.process_definitions.update_one({"id": process_id}, {"$set": update_data})
     if res.matched_count == 0:
         raise HTTPException(404, "Process not found")
     p = await db.process_definitions.find_one({"id": process_id}, {"_id": 0})
     enriched = await _enrich_process(p)
     await db.process_definitions.update_one({"id": process_id}, {"$set": enriched})
-    # Regenerar slots si cambió programación/responsable/activo
-    if any(k in raw for k in ("programacion", "responsable_id", "activo")):
-        await _regenerate_process_slots(enriched)
     return enriched
 
 

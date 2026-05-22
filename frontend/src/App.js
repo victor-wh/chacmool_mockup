@@ -12,10 +12,7 @@ import PDIView from './pages/PDIView';
 import EmployeeProfile from './pages/EmployeeProfile';
 import ProcessHome from './pages/process/ProcessHome';
 import MyProcesses from './pages/process/MyProcesses';
-import AuditList from './pages/audits/AuditList';
-import AuditForm from './pages/audits/AuditForm';
-import AuditDetail from './pages/audits/AuditDetail';
-import AuditCorrectivePlanPage from './pages/audits/AuditCorrectivePlanPage';
+
 import ProcessTreeDropdown from './components/ProcessTreeDropdown';
 import MyAssignedSteps from './pages/process/MyAssignedSteps';
 import MyExecutions from './pages/process/MyExecutions';
@@ -28,7 +25,7 @@ import ProcessTypes from './pages/process/ProcessTypes';
 import ConsequenceSystems from './pages/process/ConsequenceSystems';
 import ProcessDashboard from './pages/process/ProcessDashboard';
 import AdminExecutions from './pages/process/AdminExecutions';
-import ProcessSchedule from './pages/process/ProcessSchedule';
+import ProcessCalendar from './pages/process/ProcessCalendar';
 import { 
   Users, 
   Target, 
@@ -1017,11 +1014,10 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'], dropdown: 'process-tree' },
     { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
     { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
-    { path: "/process/schedule", icon: CalendarClock, label: "Programación", description: "Calendario y tabla", roles: ['admin', 'empleado', 'manager'] },
+    { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
     { path: "/process/admin/types", icon: Sliders, label: "Tipos de Proceso", description: "Categorías y colores", roles: ['admin'] },
     { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'] },
-    { path: "/audits", icon: ClipboardCheck, label: "Auditorías", description: "Evaluar procesos", roles: ['admin'] },
   ];
   
   // Filtrar navItems basado en el rol del usuario
@@ -1545,11 +1541,7 @@ const AppContent = () => {
             <Route path="/process/my" element={<MyProcesses />} />
             <Route path="/process/my-assigned-steps" element={<MyAssignedSteps />} />
             <Route path="/process/my-executions" element={<MyExecutions />} />
-            <Route path="/process/schedule" element={<ProcessSchedule />} />
-            <Route path="/audits" element={<AuditList />} />
-            <Route path="/audits/new" element={<AuditForm />} />
-            <Route path="/audits/:id" element={<AuditDetail />} />
-            <Route path="/audits/:id/plan-correctivo" element={<AuditCorrectivePlanPage />} />
+            <Route path="/process/calendar" element={<ProcessCalendar />} />
             <Route path="/process/execution/:id" element={<ExecutionDetail />} />
             <Route path="/process/admin/processes" element={<ProcessList />} />
             <Route path="/process/admin/processes/new" element={<ProcessForm />} />

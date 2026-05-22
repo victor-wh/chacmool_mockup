@@ -1,139 +1,55 @@
-# EvalPro - Sistema de Evaluación 360° v4
+# Proceso EvalPro · PRD
 
-## Problem Statement
-Sistema web de evaluación de empleados basado en la lógica real del cliente WispaHub.
+> Aplicación full-stack de gestión de procesos operativos con calendario de ejecución, ejecución por empleado y evaluaciones 360.
 
-## Estado Actual
-**MOCKUPS VISUALES v4 COMPLETOS** - Ajustados a documentación del cliente
+## Stack
+- Backend: FastAPI + Motor (MongoDB)
+- Frontend: React 19 + Tailwind + lucide-react + Shadcn UI
 
-## Cambios Realizados (v4)
+## Estructura del producto
 
-### Matriz 9-Box con Porcentajes
-- **Eje Y (VALORES):** 0-60%, 61-80%, 81-100%
-- **Eje X (RESULTADOS):** 0-60%, 61-80%, 81-100%
-- Clasificaciones basadas en documento "NOTAS JUGADORES.pdf":
-  - **A** (81-100% ambos): "Jugador A - Espectaculares. Da resultados. Independientes."
-  - **B3** (81-100% valores, 0-60% resultados): "Quiere ser A - Tiene valores pero no da resultados. Puesto incorrecto."
-  - **C3** (0-60% valores, 81-100% resultados): "Difícil de Sacar - Genera resultados pero no tiene valores (cáncer). Tóxico."
-  - Etc.
+### Procesos (CRUD)
+- Definición de procesos con áreas, tipos (con colores), sistema de consecuencias
+- Pasos del proceso con: orden, puntos, criticidad, requiere evidencia, auditable, staff asignado
+- Ejecuciones por staff con progreso, estados, evidencias
+- Vista "Mis procesos" agrupada por área (tabs)
+- Vista "Pasos asignados a mí" (colaboración entre áreas)
+- Sidebar dropdown "Todos los procesos" con árbol jerárquico
 
-### Estructura de Evaluación (basada en CSV del cliente)
-**Competencias necesarias para desempeñar su cargo (50%):**
-- Liderazgo
-- Trabajo en equipo
-- Resolución de problemas
-- Aprendizaje continuo
+### Calendario de procesos (Feb 2026 — versión nueva)
+- Una programación opcional **por proceso** (1:1) configurada **desde la página del calendario**.
+- Frecuencias soportadas: **No se repite · Diariamente · Días laborales (Lun-Vie) · Semanalmente · Mensualmente · Anualmente**
+- Eventos calculados virtualmente al consultar (sin pre-generación), por lo que cambiar la programación reflejado al instante.
+- Visibilidad: **Admin** ve todos los eventos · **Empleado** solo donde sea el responsable.
+- Sidebar derecho:
+  - Admin: "Sin programar" (procesos activos sin schedule) + "Programados" (con descripción legible)
+  - Empleado: "Mis procesos" (solo los suyos)
+- Modal de programación: tipo de recurrencia + campos condicionales + hora opcional + responsable + activa.
+- Click en celda con eventos → modal con detalle del día.
 
-**Valores (50%):**
-- Hazlo Ahora
-- Mejora continua (Ley Boy Scout)
-- Autoaprendizaje
-- Alertidad
-- Amabilidad
-- Valor Agregado
-- Comunicación Asertiva
+#### Endpoints
+- `GET /api/calendar/schedules` — lista (admin todos, empleado los suyos)
+- `GET /api/calendar/schedules/{proceso_id}` — uno
+- `PUT /api/calendar/schedules/{proceso_id}` — crea o actualiza (admin)
+- `DELETE /api/calendar/schedules/{proceso_id}` — quita (admin)
+- `GET /api/calendar/events?fecha_desde=&fecha_hasta=` — eventos virtuales en rango
+- `GET /api/calendar/processes-without-schedule` — para sidebar admin
 
-### Tipos de Evaluadores
-- Superior (30%)
-- Subordinados (20%)
-- Compañeros (20%)
-- Clientes (15%)
-- Autoevaluación (15%)
+### Otros módulos
+- Empleados, 9-box, Evaluaciones 360, PDI, Aciertos/Desaciertos, KPIs.
 
-### Escala de Calificación
-1. Nunca demuestra esta competencia/valor
-2. Rara vez demuestra esta competencia/valor
-3. A veces demuestra esta competencia/valor
-4. Frecuentemente demuestra esta competencia/valor
-5. Siempre demuestra esta competencia/valor
+## Cambios recientes
 
-## Funcionalidades Implementadas ✅
-- [x] Matriz 9-Box con porcentajes visibles
-- [x] Clasificaciones con descripciones del cliente
-- [x] Acciones recomendadas por clasificación
-- [x] Desglose por tipo de evaluador
-- [x] Competencias y Valores del CSV
-- [x] Pesos auto-ajustables
-- [x] Generación de enlaces públicos (WhatsApp/Email)
-- [x] Formulario público escala 1-5
-- [x] Panel de detalle al seleccionar empleado
-- [x] Dashboard con estadísticas
-- [x] Override manual de clasificación
-
-## Testing
-- 100% pruebas pasadas (22 funcionalidades verificadas)
-
-## Módulo Process (HR/Operations) — Feb 2026
-
-### Estado: ✅ Implementado y testeado
-Módulo completo para gestionar procesos operacionales con ejecución diaria por empleados.
-
-### Funcionalidades Implementadas ✅
-- [x] Modelos backend (Area, Staff, ProcessType, SystemOfConsequences, Process, ProcessStep, ProcessExecution, StepExecution)
-- [x] Rutas FastAPI `/api/process/*` (types, consequences, processes, steps, executions, stats)
-- [x] Seed script `/app/backend/seed_process.py`
-- [x] 10 Vistas React (ProcessHome, ProcessList, ProcessForm, ProcessDetail, ProcessTypes, ConsequenceSystems, ProcessDashboard, AdminExecutions, ExecutionDetail, MyProcesses, MyExecutions)
-- [x] Sidebar y ruteo integrados en App.js
-- [x] Evidencias guardadas como Base64 en MongoDB
-- [x] Dashboard con Recharts (stats, charts por área, % cumplimiento, pasos omitidos)
-- [x] **(Feb 2026) Fix P0: modales con scroll correcto** — cambio `items-center` → `items-start pt-10 pb-10` en ProcessDetail, ConsequenceSystems, ProcessTypes, ExecutionDetail
-
-### Credenciales de prueba
-- Admin: maria@empresa.com / maria123
-- Empleado: juan@empresa.com / juan123
-- Admin alt.: admin@empresa.com / admin123
+### Feb 2026 — Calendario rehecho desde cero
+- **ELIMINADOS**: módulo Auditorías + módulo "Programación" anterior (`process_schedule.py`, `audit.py`, frontend `audits/*`, `ProcessSchedule.jsx`)
+- **REVERTIDOS**: `ProcessForm` (sin sección programación), `Process` model (sin `programacion`/`responsable_id`)
+- **NUEVO**: módulo Calendario con frecuencias simplificadas (6 exactas) + sidebar tipo Planner + visibilidad por rol.
 
 ## Backlog
-- [ ] Refactor: extraer componente genérico `<Modal>` reutilizable
-- [ ] Considerar almacenamiento externo para evidencias Base64 (si crecen)
-- [ ] Carga desde Excel/CSV
-- [ ] Historial de evaluaciones
-- [ ] Integrar métricas del módulo Auditorías al Dashboard principal
-- [ ] Reportes/exportación PDF de auditorías
-- [ ] Programación: reglas custom ("último viernes del mes", "miércoles + último viernes")
-- [ ] Programación: notificaciones al responsable cuando se acerca un slot
+- Asignar fecha desde el calendario (drag-and-drop o "+" en una celda futura)
+- Notificación al responsable cuando se acerca un evento
+- Exportar el calendario a iCal/Google Calendar
+- Soporte para múltiples responsables por proceso
 
-## Módulo Auditorías — Feb 2026
-
-### Estado: ✅ Implementado y testeado
-Evaluación de procesos por administradores (presencial o histórica), con auto-cálculo de puntaje, banner aprobada/reprobada (≥70% y sin críticos omitidos), y plan de acción correctiva.
-
-### Funcionalidades Implementadas ✅
-- [x] Modelos: `Audit`, `AuditItem` con plan de acción por ítem (desviación / acción / responsable / fecha)
-- [x] Rutas `/api/audits/*` con CRUD, importación de pasos, supervisión desde ejecución
-- [x] Vistas React: `AuditList`, `AuditForm` (wizard), `AuditDetail` con tabla evaluadora
-- [x] Tabla split: "Realizado" (operario, informativo) vs "Confirmado" (auditor, decisión)
-- [x] Plan de acción por paso aparece dinámicamente sólo si auditor marca "No"
-- [x] **(Feb 2026) Plan Maestro de Acción Correctiva** — formulario completo en **vista dedicada** `/audits/:id/plan-correctivo`. Aparece **únicamente al finalizar** la auditoría y solo si reprueba (porcentaje ≤ 70% o críticos omitidos). Tras "Finalizar", redirige automáticamente al plan si reprobó. Incluye:
-  - Descripción de la desviación
-  - Investigación de causa raíz (5 Porqués)
-  - Acción correctiva (elimina la causa)
-  - Plan de implementación (qué/quién/cuándo/cómo se valida)
-  - Resultado esperado
-  - Evaluación de eficacia (fecha verificación, evidencias, ¿problema recurrió?, comentarios)
-  - Auto-guardado con debounce, denormalización del nombre del responsable
-  - Editable mientras estado != completada; readonly al completar
-  - Endpoint dedicado: `PUT /api/audits/{id}/plan-correctivo` con merge profundo
-
-## Módulo Programación de Procesos — Feb 2026
-
-### Estado: ✅ Implementado y testeado
-Programación periódica de procesos con responsable asignado, calendario tipo Planner y tabla de ejecuciones programadas.
-
-### Funcionalidades Implementadas ✅
-- [x] Modelo: `ProcessProgramacion` (tipo, día/mes/hora, criticidad, activa) y `responsable_id` a nivel proceso
-- [x] Colección `process_scheduled_executions` (id, fecha, hora, proceso, responsable, criticidad, estado)
-- [x] Frecuencias: diaria, semanal (día), mensual (día), trimestral (Ene/Abr/Jul/Oct + día), anual (mes/día), eventual
-- [x] Pre-generación automática al crear/editar proceso (3 meses adelante, 1 mes atrás)
-- [x] Endpoint `POST /api/process-schedule/regenerate` para forzar regeneración manual
-- [x] `GET /api/process-schedule` con filtros: rango fechas, proceso, responsable, estado, mine
-- [x] `POST /api/process-schedule/{id}/start` crea ProcessExecution y vincula al slot
-- [x] Visibilidad: admin ve todo; empleado solo lo suyo (auto-filtrado por staff_id)
-- [x] Auto-marca como 'atrasada' los slots vencidos al consultar
-- [x] Página `ProcessSchedule.jsx` con vista Calendario (mes) + Tabla, filtros, navegación de mes, modal de día
-- [x] Sección "Programación periódica" en `ProcessForm` con responsable, tipo, día, hora, criticidad
-- [x] Sidebar entry "Programación" para admin y empleado
-
----
-*Última actualización: Feb 2026*
-*Basado en: NOTAS JUGADORES.pdf, Evaluacion 360 WispaHub CSV, Pros-RH-20.png, Process module specs*
+## Test credentials
+Ver `/app/memory/test_credentials.md`.

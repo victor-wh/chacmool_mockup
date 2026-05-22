@@ -38,6 +38,25 @@
 ### Otros módulos
 - Empleados, 9-box, Evaluaciones 360, PDI, Aciertos/Desaciertos, KPIs.
 
+### Supervisión (Feb 2026)
+Módulo para revisar ejecuciones pasadas paso a paso.
+
+- Admin selecciona una ejecución previa → sistema clona los pasos en una "supervisión"
+- Matriz: # · Actividad · Descripción · Realizado (estado del paso en la ejecución original, informativo) · Pts · ¿Cumple? (checkbox Sí/No)
+- Al marcar **No** → fila se expande con Plan de Acción inline: Desviación · Acción Correctiva · Responsable · Fecha compromiso
+- Calificación = puntos obtenidos / puntos totales × 100. **Aprobada si ≥ 70% y sin pasos críticos omitidos.**
+- Estados: `draft` (editable) | `completada` (read-only).
+- Visible y editable sólo por **Admin**. Empleados no pueden auto-supervisarse (403).
+
+#### Endpoints
+- `GET /api/supervision` — lista
+- `GET /api/supervision/_helpers/eligible-executions` — ejecuciones sin supervisión
+- `POST /api/supervision` body `{ejecucion_id}` — crea draft + clona pasos
+- `GET /api/supervision/{id}` — detalle (incluye items)
+- `PUT /api/supervision/{id}` — cambia estado/observaciones
+- `PUT /api/supervision/{id}/items/{item_id}` — marca cumplido + plan correctivo del paso
+- `DELETE /api/supervision/{id}`
+
 ## Cambios recientes
 
 ### Feb 2026 — Calendario rehecho desde cero

@@ -30,6 +30,7 @@ from routes.empleado_a import router as empleado_a_router
 from routes.pdi import router as pdi_router
 from routes.process import router as process_router
 from routes.calendar import router as calendar_router
+from routes.supervision import router as supervision_router
 
 # Include routers
 app.include_router(auth_router)
@@ -41,6 +42,7 @@ app.include_router(empleado_a_router)
 app.include_router(pdi_router)
 app.include_router(process_router)
 app.include_router(calendar_router)
+app.include_router(supervision_router)
 
 @app.get("/api/health")
 async def health_check():

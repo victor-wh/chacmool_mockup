@@ -26,6 +26,9 @@ import ConsequenceSystems from './pages/process/ConsequenceSystems';
 import ProcessDashboard from './pages/process/ProcessDashboard';
 import AdminExecutions from './pages/process/AdminExecutions';
 import ProcessCalendar from './pages/process/ProcessCalendar';
+import SupervisionList from './pages/supervision/SupervisionList';
+import SupervisionNew from './pages/supervision/SupervisionNew';
+import SupervisionDetail from './pages/supervision/SupervisionDetail';
 import { 
   Users, 
   Target, 
@@ -1015,6 +1018,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
     { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
     { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'] },
+    { path: "/supervision", icon: ClipboardCheck, label: "Supervisión", description: "Revisar ejecuciones", roles: ['admin'] },
     { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
     { path: "/process/admin/types", icon: Sliders, label: "Tipos de Proceso", description: "Categorías y colores", roles: ['admin'] },
     { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'] },
@@ -1542,6 +1546,9 @@ const AppContent = () => {
             <Route path="/process/my-assigned-steps" element={<MyAssignedSteps />} />
             <Route path="/process/my-executions" element={<MyExecutions />} />
             <Route path="/process/calendar" element={<ProcessCalendar />} />
+            <Route path="/supervision" element={<SupervisionList />} />
+            <Route path="/supervision/new" element={<SupervisionNew />} />
+            <Route path="/supervision/:id" element={<SupervisionDetail />} />
             <Route path="/process/execution/:id" element={<ExecutionDetail />} />
             <Route path="/process/admin/processes" element={<ProcessList />} />
             <Route path="/process/admin/processes/new" element={<ProcessForm />} />

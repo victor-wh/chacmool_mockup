@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, NavLink, useLocation, useParams, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -1015,17 +1015,23 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/my-assigned-steps", icon: UserCheck, label: "Pasos asignados a mí", description: "Colaboración entre áreas", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/my-executions", icon: ClipboardList, label: "Mis Ejecuciones", description: "Historial personal", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'], dropdown: 'process-tree' },
-    { path: "/process/admin/processes", icon: Workflow, label: "Procesos", description: "Definir procesos", roles: ['admin'] },
-    { path: "/process/admin/executions", icon: Activity, label: "Ejecuciones", description: "Monitoreo global", roles: ['admin'] },
-    { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'] },
     { path: "/supervision", icon: ClipboardCheck, label: "Supervisión", description: "Revisar ejecuciones", roles: ['admin'] },
-    { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard Process", description: "Estadísticas", roles: ['admin'] },
-    { path: "/process/admin/types", icon: Sliders, label: "Tipos de Proceso", description: "Categorías y colores", roles: ['admin'] },
-    { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'] },
+    // MENU DE PROCESOS (parent group)
+    { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard de procesos", description: "Estadísticas", roles: ['admin'], group: 'menu-procesos' },
+    { path: "/process/admin/processes", icon: Workflow, label: "Lista de procesos", description: "Definir procesos", roles: ['admin'], group: 'menu-procesos' },
+    { path: "/process/admin/executions", icon: Activity, label: "Ejecución de procesos", description: "Monitoreo global", roles: ['admin'], group: 'menu-procesos' },
+    { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'], group: 'menu-procesos' },
+    { path: "/process/admin/types", icon: Sliders, label: "Tipo de Proceso", description: "Categorías y colores", roles: ['admin'], group: 'menu-procesos' },
+    { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'], group: 'menu-procesos' },
   ];
   
   // Filtrar navItems basado en el rol del usuario
   const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'empleado'));
+
+  // ¿El grupo "menu-procesos" está expandido?
+  const groupHasActive = navItems.some(i => i.group === 'menu-procesos' && location.pathname.startsWith(i.path));
+  const [procesosOpen, setProcesosOpen] = useState(groupHasActive);
+  useEffect(() => { if (groupHasActive) setProcesosOpen(true); }, [groupHasActive]);
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 min-h-screen flex flex-col">
@@ -1058,28 +1064,67 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
 
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-1">
-          {navItems.map((item) => (
-            <li key={item.path}>
-              {item.dropdown === 'process-tree' ? (
-                <ProcessTreeDropdown />
-              ) : (
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-                      isActive ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-600 hover:text-slate-900"
-                    }`
-                  }
-                >
-                  <item.icon className="w-5 h-5" />
-                  <div className="flex-1">
-                    <span className="block">{item.label}</span>
-                    <span className="text-xs text-slate-400">{item.description}</span>
-                  </div>
-                </NavLink>
-              )}
-            </li>
-          ))}
+          {(() => {
+            let groupHeaderRendered = false;
+            return navItems.map((item) => {
+              // Render header before first grouped item
+              const isGrouped = item.group === 'menu-procesos';
+              const header = isGrouped && !groupHeaderRendered ? (() => {
+                groupHeaderRendered = true;
+                return (
+                  <li key="menu-procesos-header">
+                    <button
+                      type="button"
+                      onClick={() => setProcesosOpen(o => !o)}
+                      data-testid="sidebar-menu-procesos-toggle"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${groupHasActive ? 'bg-slate-100 text-slate-900 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <Workflow className="w-5 h-5"/>
+                      <div className="flex-1 text-left">
+                        <span className="block">Menú de procesos</span>
+                        <span className="text-xs text-slate-400">Administración</span>
+                      </div>
+                      {procesosOpen ? <ChevronDown className="w-4 h-4 text-slate-400"/> : <ChevronRight className="w-4 h-4 text-slate-400"/>}
+                    </button>
+                  </li>
+                );
+              })() : null;
+
+              if (isGrouped && !procesosOpen) {
+                return header; // solo render del header la primera vez
+              }
+
+              const node = (
+                <li key={item.path}>
+                  {item.dropdown === 'process-tree' ? (
+                    <ProcessTreeDropdown />
+                  ) : (
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                          isActive ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-600 hover:text-slate-900"
+                        } ${isGrouped ? 'ml-3 pl-3 border-l border-slate-100' : ''}`
+                      }
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <div className="flex-1">
+                        <span className="block">{item.label}</span>
+                        <span className="text-xs text-slate-400">{item.description}</span>
+                      </div>
+                    </NavLink>
+                  )}
+                </li>
+              );
+
+              return (
+                <Fragment key={`wrap-${item.path}`}>
+                  {header}
+                  {node}
+                </Fragment>
+              );
+            });
+          })()}
         </ul>
       </nav>
 

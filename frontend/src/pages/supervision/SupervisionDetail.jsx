@@ -259,13 +259,13 @@ export default function SupervisionDetail() {
                     </div>
 
                     {/* Pts */}
-                    <div className="flex-shrink-0 text-center">
+                    <div className="flex-shrink-0 text-center w-10">
                       <p className="text-[9px] uppercase tracking-wider text-slate-400">Pts</p>
                       <p className="text-base font-semibold text-slate-900">{it.puntos}</p>
                     </div>
 
                     {/* Cumple? checkbox */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 w-24">
                       <p className="text-[9px] uppercase tracking-wider text-slate-400 text-center mb-1">¿Cumple?</p>
                       <Checkbox
                         value={it.cumplido}
@@ -275,9 +275,9 @@ export default function SupervisionDetail() {
                       />
                     </div>
 
-                    {/* Evidence button */}
-                    <div className="flex-shrink-0 flex items-center gap-1">
-                      {canViewEvidence && (
+                    {/* Evidence button + Info — fixed width slot so columns align */}
+                    <div className="flex-shrink-0 flex items-center gap-1 w-20 justify-end">
+                      {canViewEvidence ? (
                         <button
                           onClick={() => setEvidenceIdx(i)}
                           title={hasEvidence ? "Ver evidencia" : "Ver detalles (paso crítico)"}
@@ -286,6 +286,8 @@ export default function SupervisionDetail() {
                         >
                           {hasEvidence ? <ImageIcon className="w-4 h-4"/> : <AlertTriangle className="w-4 h-4"/>}
                         </button>
+                      ) : (
+                        <span className="w-8 h-8 inline-block" aria-hidden="true"/>
                       )}
                       <button
                         onClick={() => setDetailsIdx(i)}

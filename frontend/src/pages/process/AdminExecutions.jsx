@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Loader2, Eye, Search, Filter } from 'lucide-react';
+import { supervisionAPI } from '../../services/supervisionApi';
+import { Loader2, Eye, Search, Filter, ClipboardCheck } from 'lucide-react';
 
 export default function AdminExecutions() {
   const [items, setItems] = useState([]);
@@ -10,21 +11,41 @@ export default function AdminExecutions() {
   const [filterDate, setFilterDate] = useState('');
   const [filterProc, setFilterProc] = useState('');
   const [search, setSearch] = useState('');
+  const [supMap, setSupMap] = useState({}); // ejecucion_id -> {id, codigo}
+  const [supervising, setSupervising] = useState(null);
   const navigate = useNavigate();
 
   const load = async () => {
     setLoading(true);
     try {
-      const [exes, procs] = await Promise.all([
+      const [exes, procs, sups] = await Promise.all([
         processAPI.listExecutions({ fecha: filterDate || undefined, procesoId: filterProc || undefined }),
         processAPI.listProcesses(),
+        supervisionAPI.list().catch(() => []),
       ]);
       setItems(exes); setProcesses(procs);
+      const map = {};
+      (sups || []).forEach(s => { map[s.ejecucion_id] = { id: s.id, codigo: s.codigo, estado: s.estado }; });
+      setSupMap(map);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterDate, filterProc]);
+
+  const handleSupervise = async (ev, e) => {
+    ev.stopPropagation();
+    const existing = supMap[e.id];
+    if (existing) {
+      navigate(`/supervision/${existing.id}`);
+      return;
+    }
+    setSupervising(e.id);
+    try {
+      const sup = await supervisionAPI.create(e.id);
+      navigate(`/supervision/${sup.id}`);
+    } catch (err) { alert(err.message); setSupervising(null); }
+  };
 
   const filtered = items.filter(e => (e.codigo_ejecucion + e.proceso_nombre + e.staff_user_name).toLowerCase().includes(search.toLowerCase()));
 
@@ -96,8 +117,25 @@ export default function AdminExecutions() {
                     )}
                   </td>
                   <td className="px-6 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={(ev) => { ev.stopPropagation(); navigate(`/process/execution/${e.id}`); }} className="text-blue-600 hover:underline text-sm flex items-center gap-1"><Eye className="w-4 h-4"/>Ver</button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {(() => {
+                        const sup = supMap[e.id];
+                        return (
+                          <button
+                            onClick={(ev) => handleSupervise(ev, e)}
+                            disabled={supervising === e.id}
+                            data-testid={`supervise-btn-${e.id}`}
+                            title={sup ? `Abrir supervisión ${sup.codigo}` : 'Iniciar supervisión'}
+                            className={`inline-flex items-center gap-1 text-xs font-medium rounded-lg px-2.5 py-1 disabled:opacity-50 ${sup ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                          >
+                            {supervising === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <ClipboardCheck className="w-3.5 h-3.5"/>}
+                            {sup ? sup.codigo : 'Supervisión'}
+                          </button>
+                        );
+                      })()}
+                      <button onClick={(ev) => { ev.stopPropagation(); navigate(`/process/execution/${e.id}`); }} className="text-blue-600 hover:underline text-xs flex items-center gap-1 px-2 py-1">
+                        <Eye className="w-3.5 h-3.5"/>Ver
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -1012,14 +1012,13 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/kpis", icon: Target, label: "KPIs", description: "Indicadores clave", roles: ['admin'] },
     // PROCESS MODULE
     { path: "/process/my", icon: PlayCircle, label: "Mis Procesos", description: "Procesos disponibles", roles: ['admin', 'empleado', 'manager'] },
-    { path: "/process/my-assigned-steps", icon: UserCheck, label: "Pasos asignados a mí", description: "Colaboración entre áreas", roles: ['admin', 'empleado', 'manager'] },
     { path: "/process/my-executions", icon: ClipboardList, label: "Mis Ejecuciones", description: "Historial personal", roles: ['admin', 'empleado', 'manager'] },
-    { path: "/process/all", icon: FolderOpen, label: "Todos los Procesos", description: "Explorar por área", roles: ['admin', 'empleado', 'manager'], dropdown: 'process-tree' },
-    { path: "/supervision", icon: ClipboardCheck, label: "Supervisión", description: "Revisar ejecuciones", roles: ['admin'] },
     // MENU DE PROCESOS (parent group)
     { path: "/process/admin/dashboard", icon: BarChart2, label: "Dashboard de procesos", description: "Estadísticas", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/processes", icon: Workflow, label: "Lista de procesos", description: "Definir procesos", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/executions", icon: Activity, label: "Ejecución de procesos", description: "Monitoreo global", roles: ['admin'], group: 'menu-procesos' },
+    { path: "/process/my-assigned-steps", icon: UserCheck, label: "Pasos asignados a mí", description: "Colaboración entre áreas", roles: ['admin', 'empleado', 'manager'], group: 'menu-procesos' },
+    { path: "/supervision", icon: ClipboardCheck, label: "Supervisión", description: "Revisar ejecuciones", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'], group: 'menu-procesos' },
     { path: "/process/admin/types", icon: Sliders, label: "Tipo de Proceso", description: "Categorías y colores", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'], group: 'menu-procesos' },
@@ -1081,7 +1080,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
                     >
                       <Workflow className="w-5 h-5"/>
                       <div className="flex-1 text-left">
-                        <span className="block">Menú de procesos</span>
+                        <span className="block">Procesos</span>
                         <span className="text-xs text-slate-400">Administración</span>
                       </div>
                       {procesosOpen ? <ChevronDown className="w-4 h-4 text-slate-400"/> : <ChevronRight className="w-4 h-4 text-slate-400"/>}

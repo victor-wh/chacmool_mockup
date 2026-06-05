@@ -186,10 +186,16 @@ class ProcessExecution(BaseModel):
 
 
 # ---------- Step Execution ----------
+class EvidenciaItem(BaseModel):
+    data: str  # base64
+    nombre: Optional[str] = ""
+
+
 class StepExecutionUpdate(BaseModel):
     estado: Optional[int] = None  # 0=Pendiente | 1=En progreso | 2=Completado | 3=Error
-    evidencia: Optional[str] = None  # base64 string
+    evidencia: Optional[str] = None  # base64 string (legacy, single image)
     evidencia_nombre: Optional[str] = None
+    evidencias: Optional[List[EvidenciaItem]] = None  # nueva lista multi-imagen
     comentarios: Optional[str] = None
 
 
@@ -207,7 +213,8 @@ class StepExecution(BaseModel):
     staff_asignado_id: Optional[str] = None
     staff_asignado_nombre: Optional[str] = ""
     estado: int = 0  # 0=Pendiente | 1=En progreso | 2=Completado | 3=Error
-    evidencia: Optional[str] = None  # base64
+    evidencia: Optional[str] = None  # legacy: primera evidencia
     evidencia_nombre: Optional[str] = None
+    evidencias: List[EvidenciaItem] = []  # lista completa
     comentarios: str = ""
     fecha_actualizacion: Optional[datetime] = None

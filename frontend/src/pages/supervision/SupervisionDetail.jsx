@@ -215,7 +215,7 @@ export default function SupervisionDetail() {
             const failed = it.cumplido === false;
             const passed = it.cumplido === true;
             const stepExec = stepExecMap[it.paso_id];
-            const hasEvidence = Boolean(stepExec?.evidencia);
+            const hasEvidence = Boolean(stepExec?.evidencia || (stepExec?.evidencias?.length > 0));
             const canViewEvidence = hasEvidence || it.es_critico;
 
             return (
@@ -397,7 +397,21 @@ export default function SupervisionDetail() {
                     dangerouslySetInnerHTML={{ __html: evidenceItem.descripcion }}
                   />
                 )}
-                {evidenceStepExec?.evidencia ? (
+                {evidenceStepExec?.evidencias?.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">
+                      Evidencias adjuntas por el operario ({evidenceStepExec.evidencias.length})
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {evidenceStepExec.evidencias.map((ev, ix) => (
+                        <a key={ix} href={ev.data} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50 hover:opacity-90">
+                          <img src={ev.data} alt={ev.nombre || `evidencia-${ix + 1}`} className="w-full h-40 object-cover"/>
+                          {ev.nombre && <p className="text-[10px] text-slate-500 truncate px-1.5 py-1 bg-white border-t border-slate-100">{ev.nombre}</p>}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : evidenceStepExec?.evidencia ? (
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-slate-400">Evidencia adjunta por el operario</p>
                     <img src={evidenceStepExec.evidencia} alt="evidencia" className="w-full max-h-96 object-contain rounded-lg border border-slate-200 bg-slate-50"/>

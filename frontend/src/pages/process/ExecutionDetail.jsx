@@ -81,27 +81,47 @@ export default function ExecutionDetail() {
     }
   };
 
-  const handleEvidenceUpload = async (file) => {
-    if (!file) return;
-    if (file.size > 4 * 1024 * 1024) { alert('La imagen no debe superar 4MB'); return; }
+  const handleEvidenceUpload = async (filesIn) => {
+    const files = Array.from(filesIn || []).filter(f => f && f.size);
+    if (files.length === 0) return;
+    const oversize = files.find(f => f.size > 4 * 1024 * 1024);
+    if (oversize) { alert(`"${oversize.name}" supera 4MB. Selecciona archivos más pequeños.`); return; }
     const idx = evidenceModalIdx;
     const target = steps[idx];
     if (!target) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const updated = await updateStep(target.id, {
-        evidencia: ev.target.result,
-        evidencia_nombre: file.name,
+
+    // Convertir todos los archivos a base64
+    const readFile = (f) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve({ data: ev.target.result, nombre: f.name });
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    });
+    try {
+      const newOnes = await Promise.all(files.map(readFile));
+      const merged = [...(target.evidencias || []), ...newOnes];
+      await updateStep(target.id, {
+        evidencias: merged,
         estado: 2,
       });
-      if (updated) setEvidenceModalIdx(null);
-    };
-    reader.readAsDataURL(file);
+    } catch (e) {
+      alert('Error al leer el archivo: ' + (e.message || e));
+    }
+  };
+
+  const removeEvidenceAt = async (idx, evIdx) => {
+    const target = steps[idx];
+    if (!target) return;
+    const list = (target.evidencias || []).slice();
+    list.splice(evIdx, 1);
+    const next = { evidencias: list };
+    if (list.length === 0) next.estado = 0;
+    await updateStep(target.id, next);
   };
 
   const removeEvidence = async (idx) => {
     const target = steps[idx];
-    await updateStep(target.id, { evidencia: null, evidencia_nombre: null, estado: 0 });
+    await updateStep(target.id, { evidencias: [], estado: 0 });
   };
 
   const markError = async (idx) => {
@@ -111,7 +131,7 @@ export default function ExecutionDetail() {
 
   const resetStep = async (idx) => {
     const target = steps[idx];
-    await updateStep(target.id, { estado: 0, evidencia: null, evidencia_nombre: null });
+    await updateStep(target.id, { estado: 0, evidencias: [] });
   };
 
   if (loading) return <div className="flex items-center gap-2 text-slate-500"><Loader2 className="w-4 h-4 animate-spin"/>Cargando ejecución...</div>;
@@ -229,9 +249,9 @@ export default function ExecutionDetail() {
                           <User className="w-3 h-3"/>{locked ? `Asignado a ${s.staff_asignado_nombre}` : `Tú · ${s.staff_asignado_nombre}`}
                         </span>
                       )}
-                      {s.evidencia && (
+                      {(s.evidencias?.length > 0 || s.evidencia) && (
                         <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                          <ImageIcon className="w-3 h-3"/>Adjunto
+                          <ImageIcon className="w-3 h-3"/>{(s.evidencias?.length || (s.evidencia ? 1 : 0))} adjunto{(s.evidencias?.length || 1) === 1 ? '' : 's'}
                         </span>
                       )}
                     </div>
@@ -301,25 +321,53 @@ export default function ExecutionDetail() {
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Evidencia (imagen) <span className="text-red-500">*</span></label>
-                  {evidenceStep.evidencia ? (
-                    <div className="space-y-2">
-                      <img src={evidenceStep.evidencia} alt="evidencia" className="w-full max-h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"/>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500 truncate">{evidenceStep.evidencia_nombre}</span>
-                        <button onClick={() => removeEvidence(evidenceModalIdx)} className="text-red-600 hover:underline flex items-center gap-1">
-                          <X className="w-3 h-3"/>Quitar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl py-10 text-sm text-slate-500 hover:text-blue-600 transition-colors">
-                      <ImageIcon className="w-8 h-8"/>
-                      <span>Haz clic para subir o arrastra una imagen</span>
-                      <span className="text-xs text-slate-400">PNG, JPG · máx 4MB</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={e => handleEvidenceUpload(e.target.files?.[0])}/>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-slate-700">
+                      Evidencias <span className="text-red-500">*</span>
+                      {(evidenceStep.evidencias?.length || 0) > 0 && (
+                        <span className="ml-2 text-xs text-slate-400 font-normal">({evidenceStep.evidencias.length} imagen{evidenceStep.evidencias.length === 1 ? '' : 'es'})</span>
+                      )}
                     </label>
+                    {(evidenceStep.evidencias?.length || 0) > 0 && (
+                      <button onClick={() => removeEvidence(evidenceModalIdx)} className="text-xs text-red-600 hover:underline flex items-center gap-1">
+                        <X className="w-3 h-3"/>Quitar todas
+                      </button>
+                    )}
+                  </div>
+
+                  {(evidenceStep.evidencias?.length || 0) > 0 && (
+                    <div className="grid grid-cols-2 gap-2 mb-3" data-testid="evidence-gallery">
+                      {evidenceStep.evidencias.map((ev, ix) => (
+                        <div key={ix} className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img src={ev.data} alt={ev.nombre || `evidencia-${ix + 1}`} className="w-full h-32 object-cover"/>
+                          <button
+                            onClick={() => removeEvidenceAt(evidenceModalIdx, ix)}
+                            title="Eliminar"
+                            className="absolute top-1 right-1 bg-white/90 hover:bg-red-50 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                          >
+                            <X className="w-3 h-3"/>
+                          </button>
+                          {ev.nombre && (
+                            <p className="text-[10px] text-slate-500 truncate px-1.5 py-1 bg-white border-t border-slate-100">{ev.nombre}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
+
+                  <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl py-6 text-sm text-slate-500 hover:text-blue-600 transition-colors">
+                    <ImageIcon className="w-7 h-7"/>
+                    <span>{(evidenceStep.evidencias?.length || 0) > 0 ? 'Agregar más imágenes' : 'Haz clic para subir o arrastra imágenes'}</span>
+                    <span className="text-xs text-slate-400">PNG, JPG · máx 4MB por imagen · puedes seleccionar varias</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      data-testid="evidence-input"
+                      onChange={e => { handleEvidenceUpload(e.target.files); e.target.value = ''; }}
+                    />
+                  </label>
                 </div>
               </div>
 

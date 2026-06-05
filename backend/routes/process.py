@@ -549,6 +549,7 @@ async def create_execution(
             "estado": 0,
             "evidencia": None,
             "evidencia_nombre": None,
+            "evidencias": [],
             "comentarios": "",
             "fecha_actualizacion": None,
         })
@@ -562,6 +563,13 @@ async def create_execution(
 @router.get("/executions/{execution_id}/steps", response_model=List[StepExecution])
 async def list_step_executions(execution_id: str, current_user: dict = Depends(get_current_active_user)):
     items = await db.process_step_executions.find({"ejecucion_id": execution_id}, {"_id": 0}).sort("paso_orden", 1).to_list(500)
+    # Compatibilidad con datos viejos: si no tiene `evidencias`, derivarla del campo legacy.
+    for it in items:
+        if not it.get("evidencias"):
+            if it.get("evidencia"):
+                it["evidencias"] = [{"data": it["evidencia"], "nombre": it.get("evidencia_nombre") or ""}]
+            else:
+                it["evidencias"] = []
     return items
 
 
@@ -593,13 +601,38 @@ async def update_step_execution(
                 raise HTTPException(403, "Not allowed to update this step execution")
 
     update_data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None}
+
+    # Normalizar evidencias <-> campo legacy
+    if "evidencias" in update_data:
+        evs = update_data["evidencias"] or []
+        # Pydantic items podrían venir como dicts ya
+        update_data["evidencias"] = [
+            {"data": e.get("data") if isinstance(e, dict) else e.data,
+             "nombre": (e.get("nombre") if isinstance(e, dict) else e.nombre) or ""}
+            for e in evs
+        ]
+        if update_data["evidencias"]:
+            first = update_data["evidencias"][0]
+            update_data["evidencia"] = first["data"]
+            update_data["evidencia_nombre"] = first.get("nombre", "")
+        else:
+            update_data["evidencia"] = None
+            update_data["evidencia_nombre"] = None
+    elif "evidencia" in update_data:
+        # Solo viene el campo legacy → reflejar también en la lista
+        nombre = update_data.get("evidencia_nombre") or step_exec.get("evidencia_nombre") or ""
+        update_data["evidencias"] = [{"data": update_data["evidencia"], "nombre": nombre}] if update_data["evidencia"] else []
+
     update_data["fecha_actualizacion"] = _now()
     await db.process_step_executions.update_one({"id": step_exec_id}, {"$set": update_data})
 
     # refresh exec progress
     await _refresh_execution_progress(step_exec["ejecucion_id"])
 
-    return await db.process_step_executions.find_one({"id": step_exec_id}, {"_id": 0})
+    doc = await db.process_step_executions.find_one({"id": step_exec_id}, {"_id": 0})
+    if "evidencias" not in doc or doc["evidencias"] is None:
+        doc["evidencias"] = [{"data": doc["evidencia"], "nombre": doc.get("evidencia_nombre") or ""}] if doc.get("evidencia") else []
+    return doc
 
 
 @router.get("/my-assigned-steps")

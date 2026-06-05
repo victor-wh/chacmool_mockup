@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { Loader2, Eye, Clock, CheckCircle2 } from 'lucide-react';
+import { softTint } from '../../lib/color';
 
 export default function MyExecutions() {
   const [items, setItems] = useState([]);
@@ -60,7 +61,12 @@ export default function MyExecutions() {
                 <td className="px-6 py-3">
                   <p className="font-medium text-slate-900">{e.proceso_nombre}</p>
                   {e.tipo_nombre && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: e.tipo_color_fondo, color: e.tipo_color_texto }}>{e.tipo_nombre}</span>
+                    <span
+                      className="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full"
+                      style={{ backgroundColor: softTint(e.tipo_color_fondo, 0.15), color: e.tipo_color_fondo }}
+                    >
+                      {e.tipo_nombre}
+                    </span>
                   )}
                 </td>
                 <td className="px-6 py-3 text-sm text-slate-600">{e.fecha} {e.hora_inicio}</td>

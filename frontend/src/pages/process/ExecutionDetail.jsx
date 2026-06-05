@@ -412,7 +412,11 @@ export default function ExecutionDetail() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Descripción</p>
-                  <p className="text-sm text-slate-700 whitespace-pre-line">{detailsStep.paso_descripcion || <span className="text-slate-400 italic">— sin descripción —</span>}</p>
+                  {detailsStep.paso_descripcion ? (
+                    <div className="ck-content-rendered text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: detailsStep.paso_descripcion }}/>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">— sin descripción —</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div className="bg-slate-50 rounded-xl p-3">

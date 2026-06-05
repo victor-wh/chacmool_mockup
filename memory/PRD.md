@@ -17,23 +17,30 @@
 - Sidebar dropdown "Todos los procesos" con árbol jerárquico
 
 ### Calendario de procesos (Feb 2026 — versión nueva)
-- Una programación opcional **por proceso** (1:1) configurada **desde la página del calendario**.
+- **TRES schedules independientes por proceso** (uno por `schedule_type`):
+  - `ejecucion` (Realizar · azul · ícono ▶) — cuándo ejecutar el proceso
+  - `supervision` (Supervisar · ámbar · ícono ◉) — cuándo supervisarlo
+  - `auditoria` (Auditar · morado · ícono ☑) — cuándo auditarlo
+  - Cada tipo puede tener su **propio responsable**, su propia frecuencia y su propia hora.
 - Frecuencias soportadas: **No se repite · Diariamente · Días laborales (Lun-Vie) · Semanalmente · Mensualmente · Anualmente**
-- Eventos calculados virtualmente al consultar (sin pre-generación), por lo que cambiar la programación reflejado al instante.
-- Visibilidad: **Admin** ve todos los eventos · **Empleado** solo donde sea el responsable.
-- Sidebar derecho:
-  - Admin: "Sin programar" (procesos activos sin schedule) + "Programados" (con descripción legible)
-  - Empleado: "Mis procesos" (solo los suyos)
-- Modal de programación: tipo de recurrencia + campos condicionales + hora opcional + responsable + activa.
-- Click en celda con eventos → modal con detalle del día.
+- Eventos calculados virtualmente al consultar (sin pre-generación).
+- Visibilidad: **Admin** ve todos · **Empleado** solo los eventos donde sea el responsable de cualquier tipo.
+- **Vista combinada con toggles**: los 3 tipos se muestran en un solo grid; toolbar con 3 chips toggleables (R/S/A) para mostrar/ocultar cada tipo. Cada evento del grid muestra una insignia R/S/A y un borde izquierdo de color por tipo.
+- Sidebar derecho con **tabs por tipo** (Realizar/Supervisar/Auditar). Cada tab muestra "Sin programar" y "Programados" filtrados por ese tipo.
+- Modal de programación coloreado por tipo (header soft-color + ícono) — el botón "Quitar" sólo borra ese tipo específico.
+- Click en celda con eventos → DayModal con badge de tipo por evento.
 
 #### Endpoints
-- `GET /api/calendar/schedules` — lista (admin todos, empleado los suyos)
-- `GET /api/calendar/schedules/{proceso_id}` — uno
-- `PUT /api/calendar/schedules/{proceso_id}` — crea o actualiza (admin)
-- `DELETE /api/calendar/schedules/{proceso_id}` — quita (admin)
-- `GET /api/calendar/events?fecha_desde=&fecha_hasta=` — eventos virtuales en rango
-- `GET /api/calendar/processes-without-schedule` — para sidebar admin
+- `GET /api/calendar/schedules?schedule_type=…` — lista (filtra por tipo si se pasa)
+- `GET /api/calendar/schedules/{proceso_id}?schedule_type=…` — uno (default `ejecucion`)
+- `PUT /api/calendar/schedules/{proceso_id}?schedule_type=…` — crea/actualiza
+- `DELETE /api/calendar/schedules/{proceso_id}?schedule_type=…` — quita
+- `GET /api/calendar/events?fecha_desde=&fecha_hasta=&schedule_types=ejecucion,supervision,auditoria` — eventos virtuales filtrables por tipo
+- `GET /api/calendar/processes-without-schedule?schedule_type=…` — para sidebar admin
+- **Migración suave**: docs legacy sin `schedule_type` se interpretan como `ejecucion`.
+
+#### Schema `process_schedules`
+`{id, proceso_id, schedule_type, tipo, fecha_unica?, dia_semana?, dia_mes?, mes?, hora?, responsable_id?, activa}` · clave única lógica `(proceso_id, schedule_type)`.
 
 ### Otros módulos
 - Empleados, 9-box, Evaluaciones 360, PDI, Aciertos/Desaciertos, KPIs.
@@ -58,6 +65,12 @@ Módulo para revisar ejecuciones pasadas paso a paso.
 - `DELETE /api/supervision/{id}`
 
 ## Cambios recientes
+
+### Feb 5 2026 — Calendario triple (Realizar / Supervisar / Auditar)
+- Un proceso ahora puede tener **3 schedules independientes** (uno de cada tipo), cada uno con su propia frecuencia, hora y responsable.
+- Backend: añadido `schedule_type` al modelo `process_schedules`; todos los endpoints aceptan el parámetro `?schedule_type=`. Migración suave de docs legacy.
+- Frontend: `ProcessCalendar.jsx` con toggles por tipo en toolbar, sidebar con tabs por tipo, eventos con badge R/S/A y borde de color, modal de programación coloreado por tipo.
+- Tests: 12/12 pytest backend + 100% frontend (testing agent).
 
 ### Feb 2026 — Calendario rehecho desde cero
 - **ELIMINADOS**: módulo Auditorías + módulo "Programación" anterior (`process_schedule.py`, `audit.py`, frontend `audits/*`, `ProcessSchedule.jsx`)

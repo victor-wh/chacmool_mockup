@@ -53,6 +53,14 @@ function calendarGridEnd(d) {
   const dow = (last.getDay() + 6) % 7;
   return addDays(last, 6 - dow);
 }
+function weekStart(d) {
+  const dow = (d.getDay() + 6) % 7; // Mon=0
+  const r = new Date(d);
+  r.setDate(r.getDate() - dow);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+function weekEnd(d) { return addDays(weekStart(d), 6); }
 
 export default function ProcessCalendar() {
   const { isAdmin } = useAuth();
@@ -73,11 +81,14 @@ export default function ProcessCalendar() {
   const [search, setSearch] = useState('');
   const [openSchedule, setOpenSchedule] = useState(null); // { proceso, schedule|null, schedule_type }
   const [openDay, setOpenDay] = useState(null); // YYYY-MM-DD
+  const [view, setView] = useState('mes'); // 'mes' | 'semana'
 
-  const range = useMemo(() => ({
-    from: fmt(calendarGridStart(cursor)),
-    to: fmt(calendarGridEnd(cursor)),
-  }), [cursor]);
+  const range = useMemo(() => {
+    if (view === 'semana') {
+      return { from: fmt(weekStart(cursor)), to: fmt(weekEnd(cursor)) };
+    }
+    return { from: fmt(calendarGridStart(cursor)), to: fmt(calendarGridEnd(cursor)) };
+  }, [cursor, view]);
 
   const enabledTypes = useMemo(
     () => STYPES.map(s => s.v).filter(v => visibleTypes[v]),
@@ -186,15 +197,43 @@ export default function ProcessCalendar() {
               <button onClick={() => setCursor(new Date())} className="text-xs border border-slate-200 hover:bg-slate-50 rounded-lg px-3 py-1.5" data-testid="cal-today-btn">
                 Hoy
               </button>
-              <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} data-testid="cal-prev-btn" className="p-1.5 hover:bg-slate-100 rounded-lg">
+              <button
+                onClick={() => {
+                  if (view === 'semana') setCursor(addDays(cursor, -7));
+                  else setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
+                }}
+                data-testid="cal-prev-btn" className="p-1.5 hover:bg-slate-100 rounded-lg">
                 <ChevronLeft className="w-4 h-4"/>
               </button>
-              <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} data-testid="cal-next-btn" className="p-1.5 hover:bg-slate-100 rounded-lg">
+              <button
+                onClick={() => {
+                  if (view === 'semana') setCursor(addDays(cursor, 7));
+                  else setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+                }}
+                data-testid="cal-next-btn" className="p-1.5 hover:bg-slate-100 rounded-lg">
                 <ChevronRight className="w-4 h-4"/>
               </button>
               <span className="ml-2 text-sm font-semibold text-slate-800 capitalize">
-                {MES_LABELS[cursor.getMonth()]} de {cursor.getFullYear()}
+                {view === 'semana' ? formatWeekLabel(cursor) : `${MES_LABELS[cursor.getMonth()]} de ${cursor.getFullYear()}`}
               </span>
+            </div>
+
+            {/* View switch Semana / Mes */}
+            <div className="inline-flex items-center bg-slate-100 rounded-lg p-0.5">
+              {[
+                { v: 'semana', lbl: 'Semana' },
+                { v: 'mes', lbl: 'Mes' },
+              ].map(o => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setView(o.v)}
+                  data-testid={`cal-view-${o.v}`}
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${view === o.v ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {o.lbl}
+                </button>
+              ))}
             </div>
 
             {/* Toggles por tipo de schedule */}
@@ -266,6 +305,8 @@ export default function ProcessCalendar() {
               <div className="p-10 text-center text-slate-400 inline-flex items-center gap-2 w-full justify-center">
                 <Loader2 className="w-4 h-4 animate-spin"/>Cargando…
               </div>
+            ) : view === 'semana' ? (
+              <WeekGrid cursor={cursor} eventsByDate={eventsByDate} onOpenDay={setOpenDay}/>
             ) : (
               <CalendarGrid cursor={cursor} eventsByDate={eventsByDate} onOpenDay={setOpenDay}/>
             )}
@@ -432,6 +473,84 @@ export default function ProcessCalendar() {
           onClose={() => setOpenDay(null)}
         />
       )}
+    </div>
+  );
+}
+
+// ===========================================================
+function formatWeekLabel(d) {
+  const s = weekStart(d), e = weekEnd(d);
+  const sm = MES_LABELS[s.getMonth()].slice(0, 3);
+  const em = MES_LABELS[e.getMonth()].slice(0, 3);
+  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
+    return `${s.getDate()} – ${e.getDate()} ${sm} ${s.getFullYear()}`;
+  }
+  if (s.getFullYear() === e.getFullYear()) {
+    return `${s.getDate()} ${sm} – ${e.getDate()} ${em} ${s.getFullYear()}`;
+  }
+  return `${s.getDate()} ${sm} ${s.getFullYear()} – ${e.getDate()} ${em} ${e.getFullYear()}`;
+}
+
+// ===========================================================
+function WeekGrid({ cursor, eventsByDate, onOpenDay }) {
+  const start = weekStart(cursor);
+  const days = [];
+  for (let i = 0; i < 7; i++) days.push(addDays(start, i));
+  const today = fmt(new Date());
+  return (
+    <div className="grid grid-cols-7">
+      {days.map((d, i) => {
+        const ds = fmt(d);
+        const isToday = ds === today;
+        const list = eventsByDate[ds] || [];
+        return (
+          <div
+            key={i}
+            data-testid={`cal-day-${ds}`}
+            onClick={() => list.length && onOpenDay(ds)}
+            className={`min-h-[420px] border-r border-slate-100 p-2 text-xs bg-white ${list.length ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="inline-flex items-center gap-1.5">
+                <span className={`text-[11px] font-semibold ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center' : 'text-slate-700'}`}>
+                  {d.getDate()}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                  {DOW_LABELS[i]}
+                </span>
+              </div>
+              {list.length > 0 && (<span className="text-[10px] text-slate-400">{list.length}</span>)}
+            </div>
+            <div className="space-y-1">
+              {list.map(ev => {
+                const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
+                return (
+                  <div
+                    key={ev.id}
+                    className="text-[11px] rounded px-1.5 py-1 font-medium flex items-start gap-1.5"
+                    style={{
+                      background: ev.tipo_color_fondo || '#1F2937',
+                      color: ev.tipo_color_texto || '#fff',
+                      borderLeft: `3px solid ${st.color}`,
+                    }}
+                    title={`[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
+                  >
+                    <span
+                      className="inline-flex items-center justify-center text-[9px] font-bold rounded-sm w-3.5 h-3.5 flex-shrink-0 mt-0.5"
+                      style={{ background: st.color, color: '#fff' }}
+                    >{st.short}</span>
+                    <div className="min-w-0 flex-1">
+                      {ev.hora && <div className="opacity-80 text-[10px]">{ev.hora}</div>}
+                      <div className="font-mono text-[10px] opacity-90">{ev.proceso_codigo}</div>
+                      <div className="leading-tight line-clamp-2">{ev.proceso_nombre}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

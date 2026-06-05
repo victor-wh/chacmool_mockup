@@ -66,6 +66,11 @@ Módulo para revisar ejecuciones pasadas paso a paso.
 
 ## Cambios recientes
 
+### Feb 5 2026 — Vista Semana en el calendario
+- Toggle **Semana / Mes** en la toolbar del calendario (`ProcessCalendar.jsx`).
+- Vista Semana: 7 columnas Lun-Dom más altas con eventos en cards ampliadas (hora, código, nombre completo del proceso).
+- Navegación ‹ › avanza por semanas o por meses según vista activa. Etiqueta de rango "DD-DD Mmm AAAA" en Semana.
+
 ### Feb 5 2026 — Matriz de supervisión mensual
 - Nueva vista `/process/supervision-matrix` (admin): tabla estilo planilla con una fila por proceso activo y columnas: Nomenclatura, Proceso, Área, Responsable (ejecución), Frecuencia Proceso, Criticidad, Supervisión, Frecuencia Auditoría, y N columnas Semana 1..N del mes seleccionado.
 - Estado por semana: verde "Se ejecuta" (supervisión completada), ámbar "En curso" (draft), rojo (requerida pendiente), gris (no requerida esa semana).

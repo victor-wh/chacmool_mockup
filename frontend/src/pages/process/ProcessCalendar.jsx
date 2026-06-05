@@ -527,16 +527,17 @@ function WeekGrid({ cursor, eventsByDate, onOpenDay }) {
                 return (
                   <div
                     key={ev.id}
-                    className="text-[11px] rounded px-1.5 py-1 font-medium flex items-start gap-1.5"
+                    className="text-[11px] rounded-xl pl-2 pr-2.5 py-1.5 font-medium flex items-start gap-1.5 border"
                     style={{
-                      background: ev.tipo_color_fondo || '#1F2937',
-                      color: ev.tipo_color_texto || '#fff',
-                      borderLeft: `3px solid ${st.color}`,
+                      background: st.soft,
+                      color: st.text,
+                      borderColor: st.color,
+                      boxShadow: `inset 4px 0 0 0 ${ev.tipo_color_fondo || '#94A3B8'}`,
                     }}
                     title={`[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
                   >
                     <span
-                      className="inline-flex items-center justify-center text-[9px] font-bold rounded-sm w-3.5 h-3.5 flex-shrink-0 mt-0.5"
+                      className="inline-flex items-center justify-center text-[9px] font-bold rounded-full w-4 h-4 flex-shrink-0 mt-0.5 ml-1"
                       style={{ background: st.color, color: '#fff' }}
                     >{st.short}</span>
                     <div className="min-w-0 flex-1">
@@ -590,16 +591,17 @@ function CalendarGrid({ cursor, eventsByDate, onOpenDay }) {
                 return (
                   <div
                     key={ev.id}
-                    className="text-[10px] rounded px-1.5 py-0.5 truncate font-medium flex items-center gap-1"
+                    className="text-[10px] rounded-full pl-1 pr-2 py-0.5 truncate font-medium flex items-center gap-1 border"
                     style={{
-                      background: ev.tipo_color_fondo || '#1F2937',
-                      color: ev.tipo_color_texto || '#fff',
-                      borderLeft: `3px solid ${st.color}`,
+                      background: st.soft,
+                      color: st.text,
+                      borderColor: st.color,
+                      boxShadow: `inset 3px 0 0 0 ${ev.tipo_color_fondo || '#94A3B8'}`,
                     }}
                     title={`[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
                   >
                     <span
-                      className="inline-flex items-center justify-center text-[8px] font-bold rounded-sm w-3 h-3 flex-shrink-0"
+                      className="inline-flex items-center justify-center text-[8px] font-bold rounded-full w-3 h-3 flex-shrink-0 ml-1"
                       style={{ background: st.color, color: '#fff' }}
                     >{st.short}</span>
                     {ev.hora && <span className="opacity-80">{ev.hora}</span>}

@@ -76,6 +76,32 @@ export default function SupervisionDetail() {
     await saveItem(item.id, { cumplido: v });
   };
 
+  const markAllYes = async () => {
+    if (readOnly) return;
+    const pending = items.filter(it => it.cumplido !== true);
+    if (pending.length === 0) return;
+    if (!window.confirm(`Marcar ${pending.length} paso(s) como cumplido. ¿Continuar?`)) return;
+    setSaving(true);
+    try {
+      // Optimistic UI: ponemos todo como Sí
+      setItems(prev => prev.map(it => ({
+        ...it,
+        cumplido: true,
+        desviacion: '', accion_correctiva: '',
+        responsable_id: null, responsable_nombre: '', fecha_compromiso: null,
+      })));
+      // Backend en paralelo
+      await Promise.all(pending.map(it => supervisionAPI.updateItem(id, it.id, { cumplido: true })));
+      // Refrescar header (puntaje/aprobada)
+      const d = await supervisionAPI.get(id);
+      setSup(d); setItems(d.items || []);
+    } catch (e) {
+      alert(e.message);
+      load();
+    }
+    setSaving(false);
+  };
+
   const handlePlanField = (item, field, value) => {
     if (readOnly) return;
     patchItem(item.id, { [field]: value });
@@ -203,8 +229,20 @@ export default function SupervisionDetail() {
 
       {/* Steps list */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pasos a supervisar</h2>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pasos a supervisar</h2>
+            {!readOnly && items.some(i => i.cumplido !== true) && (
+              <button
+                onClick={markAllYes}
+                disabled={saving}
+                data-testid="supervision-mark-all-yes"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5"/>Marcar todos como Sí
+              </button>
+            )}
+          </div>
           <span className="text-xs text-slate-400">
             {items.filter(i => i.cumplido === true).length} cumplen · {items.filter(i => i.cumplido === false).length} no cumplen · {items.filter(i => i.cumplido === null || i.cumplido === undefined).length} pendientes
           </span>

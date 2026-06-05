@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { supervisionAPI } from '../../services/supervisionApi';
 import { Loader2, Eye, Search, Filter, ClipboardCheck } from 'lucide-react';
+import { softTint } from '../../lib/color';
 
 export default function AdminExecutions() {
   const [items, setItems] = useState([]);
@@ -97,7 +98,14 @@ export default function AdminExecutions() {
                   <td className="px-6 py-3 font-mono text-xs text-slate-500">{e.codigo_ejecucion}</td>
                   <td className="px-6 py-3">
                     <p className="font-medium text-slate-900">{e.proceso_nombre}</p>
-                    {e.tipo_nombre && <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: e.tipo_color_fondo, color: e.tipo_color_texto }}>{e.tipo_nombre}</span>}
+                    {e.tipo_nombre && (
+                      <span
+                        className="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full"
+                        style={{ backgroundColor: softTint(e.tipo_color_fondo, 0.15), color: e.tipo_color_fondo }}
+                      >
+                        {e.tipo_nombre}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-3 text-sm text-slate-700">{e.staff_user_name}<p className="text-xs text-slate-400">{e.staff_area_nombre}</p></td>
                   <td className="px-6 py-3 text-sm text-slate-600">{e.fecha} {e.hora_inicio}</td>

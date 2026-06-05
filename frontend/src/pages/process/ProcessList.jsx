@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { Plus, Eye, Pencil, Trash2, Loader2, FileText, Search, Info, Layers } from 'lucide-react';
 import { stripHtml } from '../../lib/html';
+import { softTint } from '../../lib/color';
 
 const ALL_TAB = '__all__';
 const NO_AREA = '__no_area__';
@@ -140,7 +141,12 @@ export default function ProcessList() {
                 </td>
                 <td className="px-6 py-3">
                   {p.tipo_nombre ? (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: p.tipo_color_fondo, color: p.tipo_color_texto }}>{p.tipo_nombre}</span>
+                    <span
+                      className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: softTint(p.tipo_color_fondo, 0.15), color: p.tipo_color_fondo }}
+                    >
+                      {p.tipo_nombre}
+                    </span>
                   ) : <span className="text-xs text-slate-400">—</span>}
                 </td>
                 <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{p.total_pasos}</td>

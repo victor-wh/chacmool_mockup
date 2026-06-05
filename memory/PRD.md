@@ -66,6 +66,14 @@ Módulo para revisar ejecuciones pasadas paso a paso.
 
 ## Cambios recientes
 
+### Feb 5 2026 — Matriz de supervisión mensual
+- Nueva vista `/process/supervision-matrix` (admin): tabla estilo planilla con una fila por proceso activo y columnas: Nomenclatura, Proceso, Área, Responsable (ejecución), Frecuencia Proceso, Criticidad, Supervisión, Frecuencia Auditoría, y N columnas Semana 1..N del mes seleccionado.
+- Estado por semana: verde "Se ejecuta" (supervisión completada), ámbar "En curso" (draft), rojo (requerida pendiente), gris (no requerida esa semana).
+- Fila "Resumen del mes" con totales completadas/requeridas por semana.
+- Filtros: búsqueda libre, área, criticidad; navegación mes anterior/siguiente; **exportar CSV**.
+- Criticidad derivada por % de pasos críticos del proceso (≥50% → Alta, >0 → Media, 0 → Baja).
+- Endpoint: `GET /api/calendar/matrix?year=YYYY&month=M` (admin only).
+
 ### Feb 5 2026 — Calendario triple (Realizar / Supervisar / Auditar)
 - Un proceso ahora puede tener **3 schedules independientes** (uno de cada tipo), cada uno con su propia frecuencia, hora y responsable.
 - Backend: añadido `schedule_type` al modelo `process_schedules`; todos los endpoints aceptan el parámetro `?schedule_type=`. Migración suave de docs legacy.

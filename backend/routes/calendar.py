@@ -369,3 +369,197 @@ async def list_processes_without_schedule(
         {"activo": True}, {"_id": 0}
     ).sort("nombre", 1).to_list(2000)
     return [p for p in procs if p["id"] not in scheduled_ids]
+
+
+
+# ============================================================
+# Matriz mensual: procesos × semanas (estado de supervisión)
+# ============================================================
+DOW_ES_FULL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+MES_ES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+
+def _describe_schedule(s: Optional[dict]) -> str:
+    if not s:
+        return "—"
+    tipo = s.get("tipo")
+    hora = f" · {s['hora']}" if s.get("hora") else ""
+    if tipo == "no_repite":
+        return f"Único: {s.get('fecha_unica') or '—'}{hora}"
+    if tipo == "diario":
+        return f"Diario{hora}"
+    if tipo == "laborales":
+        return f"Lun-Vie{hora}"
+    if tipo == "semanal":
+        ds = s.get("dia_semana")
+        if ds is None or not (0 <= int(ds) <= 6):
+            return f"Semanal{hora}"
+        return f"{DOW_ES_FULL[int(ds)]}{hora}"
+    if tipo == "mensual":
+        return f"Día {s.get('dia_mes')} de cada mes{hora}"
+    if tipo == "anual":
+        return f"{s.get('dia_mes')} {MES_ES[(int(s.get('mes') or 1) - 1) % 12]}{hora}"
+    return "—"
+
+
+def _month_weeks(year: int, month: int):
+    """Devuelve la lista de semanas (Lun-Dom) que se intersectan con el mes.
+    Cada item: {label, start: date, end: date}. La semana se etiqueta por orden 1..N."""
+    first = date(year, month, 1)
+    last_day = calendar.monthrange(year, month)[1]
+    last = date(year, month, last_day)
+    # Lunes de la semana del primer día
+    start = first - timedelta(days=first.weekday())
+    weeks = []
+    cur = start
+    idx = 1
+    while cur <= last:
+        end = cur + timedelta(days=6)
+        weeks.append({
+            "label": f"Semana {idx}",
+            "start": cur,
+            "end": end,
+            "start_iso": cur.strftime("%Y-%m-%d"),
+            "end_iso": end.strftime("%Y-%m-%d"),
+        })
+        cur = cur + timedelta(days=7)
+        idx += 1
+    return weeks
+
+
+def _schedule_hits_in_range(sch: Optional[dict], d_from: date, d_to: date) -> bool:
+    if not sch:
+        return False
+    for d in _date_range(d_from, d_to):
+        if _matches(sch, d):
+            return True
+    return False
+
+
+def _criticidad_from_steps(critical_count: int, total: int) -> str:
+    if total <= 0:
+        return "—"
+    ratio = critical_count / total
+    if ratio >= 0.5:
+        return "Alta"
+    if ratio > 0 or critical_count > 0:
+        return "Media"
+    return "Baja"
+
+
+@router.get("/matrix")
+async def get_matrix(
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    current_user: dict = Depends(require_admin),
+):
+    """Matriz: una fila por proceso activo con su frecuencia (3 tipos),
+    criticidad, responsable de ejecución y estado de supervisión por semana del mes.
+    """
+    weeks = _month_weeks(year, month)
+
+    # Procesos activos
+    procs = await db.process_definitions.find({"activo": True}, {"_id": 0}).sort("codigo", 1).to_list(5000)
+    if not procs:
+        return {"year": year, "month": month, "weeks": [{"label": w["label"], "start": w["start_iso"], "end": w["end_iso"]} for w in weeks], "rows": []}
+
+    proc_ids = [p["id"] for p in procs]
+
+    # Steps -> derivar criticidad por proceso
+    crit_count = {}
+    total_steps = {}
+    async for st in db.process_steps.find({"proceso_id": {"$in": proc_ids}}, {"_id": 0, "proceso_id": 1, "es_critico": 1}):
+        pid = st["proceso_id"]
+        total_steps[pid] = total_steps.get(pid, 0) + 1
+        if st.get("es_critico"):
+            crit_count[pid] = crit_count.get(pid, 0) + 1
+
+    # Schedules de los 3 tipos
+    schedules_by_proc = {pid: {} for pid in proc_ids}
+    async for s in db.process_schedules.find({"proceso_id": {"$in": proc_ids}}, {"_id": 0}):
+        st = _stype(s)
+        schedules_by_proc.setdefault(s["proceso_id"], {})[st] = s
+
+    # Responsables (staff)
+    resp_ids = set()
+    for sdict in schedules_by_proc.values():
+        for s in sdict.values():
+            if s.get("responsable_id"):
+                resp_ids.add(s["responsable_id"])
+    resps = {}
+    if resp_ids:
+        async for st in db.process_staff.find({"id": {"$in": list(resp_ids)}}, {"_id": 0}):
+            resps[st["id"]] = st.get("user_name") or ""
+
+    # Supervisiones del mes (cualquiera que toque cualquier semana de las listadas)
+    span_start = weeks[0]["start_iso"] if weeks else ""
+    span_end = weeks[-1]["end_iso"] if weeks else ""
+    sup_by_proc = {pid: [] for pid in proc_ids}
+    if weeks:
+        async for sup in db.supervisions.find(
+            {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_start, "$lte": span_end}},
+            {"_id": 0, "proceso_id": 1, "fecha": 1, "estado": 1, "id": 1, "codigo": 1},
+        ):
+            sup_by_proc.setdefault(sup["proceso_id"], []).append(sup)
+
+    rows = []
+    for p in procs:
+        pid = p["id"]
+        sdict = schedules_by_proc.get(pid, {})
+        sch_e = sdict.get("ejecucion")
+        sch_s = sdict.get("supervision")
+        sch_a = sdict.get("auditoria")
+        resp_name = ""
+        if sch_e and sch_e.get("responsable_id"):
+            resp_name = resps.get(sch_e["responsable_id"], "")
+
+        # Estado por semana
+        sups = sup_by_proc.get(pid, [])
+        week_states = []
+        for w in weeks:
+            requerida = _schedule_hits_in_range(sch_s, w["start"], w["end"])
+            sups_in_week = [
+                s for s in sups
+                if s.get("fecha") and w["start_iso"] <= s["fecha"] <= w["end_iso"]
+            ]
+            completada = any(s.get("estado") == "completada" for s in sups_in_week)
+            realizada = bool(sups_in_week)
+            week_states.append({
+                "label": w["label"],
+                "start": w["start_iso"],
+                "end": w["end_iso"],
+                "supervision_requerida": requerida,
+                "supervision_realizada": realizada,
+                "supervision_completada": completada,
+                "supervision_count": len(sups_in_week),
+                "supervision_ids": [s.get("id") for s in sups_in_week],
+                "supervision_codigos": [s.get("codigo") for s in sups_in_week],
+            })
+
+        rows.append({
+            "proceso_id": pid,
+            "codigo": p.get("codigo", ""),
+            "nombre": p.get("nombre", ""),
+            "area_nombre": p.get("area_nombre", ""),
+            "tipo_nombre": p.get("tipo_nombre", ""),
+            "tipo_color_fondo": p.get("tipo_color_fondo", "#3B82F6"),
+            "tipo_color_texto": p.get("tipo_color_texto", "#FFFFFF"),
+            "responsable_nombre": resp_name,
+            "criticidad": _criticidad_from_steps(crit_count.get(pid, 0), total_steps.get(pid, 0)),
+            "total_pasos": total_steps.get(pid, 0),
+            "pasos_criticos": crit_count.get(pid, 0),
+            "frecuencia_proceso": _describe_schedule(sch_e),
+            "frecuencia_supervision": _describe_schedule(sch_s),
+            "frecuencia_auditoria": _describe_schedule(sch_a),
+            "weeks": week_states,
+        })
+
+    return {
+        "year": year,
+        "month": month,
+        "weeks": [{"label": w["label"], "start": w["start_iso"], "end": w["end_iso"]} for w in weeks],
+        "rows": rows,
+    }

@@ -26,6 +26,7 @@ import ConsequenceSystems from './pages/process/ConsequenceSystems';
 import ProcessDashboard from './pages/process/ProcessDashboard';
 import AdminExecutions from './pages/process/AdminExecutions';
 import ProcessCalendar from './pages/process/ProcessCalendar';
+import ProcessSupervisionMatrix from './pages/process/ProcessSupervisionMatrix';
 import SupervisionList from './pages/supervision/SupervisionList';
 import SupervisionNew from './pages/supervision/SupervisionNew';
 import SupervisionDetail from './pages/supervision/SupervisionDetail';
@@ -1020,6 +1021,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/process/my-assigned-steps", icon: UserCheck, label: "Pasos asignados a mí", description: "Colaboración entre áreas", roles: ['admin', 'empleado', 'manager'], group: 'menu-procesos' },
     { path: "/supervision", icon: ClipboardCheck, label: "Supervisión", description: "Revisar ejecuciones", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'], group: 'menu-procesos' },
+    { path: "/process/supervision-matrix", icon: LayoutGrid, label: "Matriz de supervisión", description: "Estado mensual por semana", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/types", icon: Sliders, label: "Tipo de Proceso", description: "Categorías y colores", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'], group: 'menu-procesos' },
   ];
@@ -1590,6 +1592,7 @@ const AppContent = () => {
             <Route path="/process/my-assigned-steps" element={<MyAssignedSteps />} />
             <Route path="/process/my-executions" element={<MyExecutions />} />
             <Route path="/process/calendar" element={<ProcessCalendar />} />
+            <Route path="/process/supervision-matrix" element={<ProcessSupervisionMatrix />} />
             <Route path="/supervision" element={<SupervisionList />} />
             <Route path="/supervision/new" element={<SupervisionNew />} />
             <Route path="/supervision/:id" element={<SupervisionDetail />} />

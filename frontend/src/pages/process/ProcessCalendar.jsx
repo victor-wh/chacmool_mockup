@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Loader2, ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, X,
-  Repeat, Trash2, Pencil, Filter, Search,
+  Repeat, Trash2, Pencil, Filter, Search, Play, Eye, ClipboardCheck,
 } from 'lucide-react';
 import { processAPI } from '../../services/processApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -30,6 +30,14 @@ const TIPO_OPTIONS = [
   { v: 'anual', lbl: 'Anualmente' },
 ];
 
+// Schedule types con sus colores e íconos. UN solo lugar para cambiar el branding.
+const STYPES = [
+  { v: 'ejecucion',   lbl: 'Realizar',   short: 'R', color: '#2563EB', soft: '#DBEAFE', text: '#1D4ED8', Icon: Play },
+  { v: 'supervision', lbl: 'Supervisar', short: 'S', color: '#D97706', soft: '#FEF3C7', text: '#B45309', Icon: Eye },
+  { v: 'auditoria',   lbl: 'Auditar',    short: 'A', color: '#7C3AED', soft: '#EDE9FE', text: '#6D28D9', Icon: ClipboardCheck },
+];
+const STYPE_MAP = Object.fromEntries(STYPES.map(s => [s.v, s]));
+
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmt(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
 function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -53,11 +61,17 @@ export default function ProcessCalendar() {
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState([]);
   const [processes, setProcesses] = useState([]);
+  // schedules son TODOS los schedules (los 3 tipos) para mostrarlos en sidebar
   const [schedules, setSchedules] = useState([]);
+  // unscheduled depende del tab activo del sidebar
   const [unscheduled, setUnscheduled] = useState([]);
   const [filters, setFilters] = useState({ proceso_id: '', responsable_id: '', mine: false });
+  // toggles de tipos visibles en el grid
+  const [visibleTypes, setVisibleTypes] = useState({ ejecucion: true, supervision: true, auditoria: true });
+  // tab activo del sidebar (controla el contexto al crear un nuevo schedule)
+  const [sidebarType, setSidebarType] = useState('ejecucion');
   const [search, setSearch] = useState('');
-  const [openSchedule, setOpenSchedule] = useState(null); // { proceso, schedule|null }
+  const [openSchedule, setOpenSchedule] = useState(null); // { proceso, schedule|null, schedule_type }
   const [openDay, setOpenDay] = useState(null); // YYYY-MM-DD
 
   const range = useMemo(() => ({
@@ -65,20 +79,31 @@ export default function ProcessCalendar() {
     to: fmt(calendarGridEnd(cursor)),
   }), [cursor]);
 
+  const enabledTypes = useMemo(
+    () => STYPES.map(s => s.v).filter(v => visibleTypes[v]),
+    [visibleTypes],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const ev = await processAPI.listEvents({
-        from: range.from, to: range.to,
-        procesoId: filters.proceso_id || undefined,
-        responsableId: filters.responsable_id || undefined,
-        mine: filters.mine || undefined,
-      });
-      setEvents(ev || []);
+      if (enabledTypes.length === 0) {
+        setEvents([]);
+      } else {
+        const ev = await processAPI.listEvents({
+          from: range.from, to: range.to,
+          procesoId: filters.proceso_id || undefined,
+          responsableId: filters.responsable_id || undefined,
+          mine: filters.mine || undefined,
+          scheduleTypes: enabledTypes,
+        });
+        setEvents(ev || []);
+      }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [range.from, range.to, filters]);
+  }, [range.from, range.to, filters, enabledTypes]);
 
+  // Carga inicial de catalogos + schedules
   useEffect(() => {
     (async () => {
       try {
@@ -90,13 +115,20 @@ export default function ProcessCalendar() {
         setStaffList(s || []);
         setProcesses(p || []);
         setSchedules(sch || []);
-        if (isAdmin) {
-          const u = await processAPI.listProcessesWithoutSchedule().catch(() => []);
-          setUnscheduled(u);
-        }
       } catch (e) { console.error(e); }
     })();
-  }, [isAdmin]);
+  }, []);
+
+  // Carga lista "sin programar" según el tab activo del sidebar
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      try {
+        const u = await processAPI.listProcessesWithoutSchedule(sidebarType).catch(() => []);
+        setUnscheduled(u || []);
+      } catch (e) { console.error(e); }
+    })();
+  }, [isAdmin, sidebarType, schedules]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -109,24 +141,26 @@ export default function ProcessCalendar() {
   const refreshSchedules = async () => {
     const sch = await processAPI.listSchedules();
     setSchedules(sch || []);
-    if (isAdmin) {
-      const u = await processAPI.listProcessesWithoutSchedule().catch(() => []);
-      setUnscheduled(u);
-    }
     load();
   };
 
-  const handleSave = async (procesoId, payload) => {
-    await processAPI.upsertSchedule(procesoId, payload);
+  const handleSave = async (procesoId, payload, scheduleType) => {
+    await processAPI.upsertSchedule(procesoId, payload, scheduleType);
     setOpenSchedule(null);
     refreshSchedules();
   };
-  const handleDelete = async (procesoId) => {
-    if (!window.confirm('¿Quitar la programación de este proceso?')) return;
-    await processAPI.deleteSchedule(procesoId);
+  const handleDelete = async (procesoId, scheduleType) => {
+    if (!window.confirm(`¿Quitar la programación de ${STYPE_MAP[scheduleType].lbl}?`)) return;
+    await processAPI.deleteSchedule(procesoId, scheduleType);
     setOpenSchedule(null);
     refreshSchedules();
   };
+
+  // Schedules del tipo activo en el sidebar
+  const sidebarSchedules = useMemo(
+    () => schedules.filter(s => (s.schedule_type || 'ejecucion') === sidebarType),
+    [schedules, sidebarType],
+  );
 
   const filteredUnscheduled = unscheduled.filter(p =>
     (p.codigo + ' ' + p.nombre).toLowerCase().includes(search.toLowerCase())
@@ -139,11 +173,11 @@ export default function ProcessCalendar() {
           Calendario de procesos
         </h1>
         <p className="text-slate-500 mt-1 text-sm">
-          Visualiza cuándo se debe ejecutar cada proceso según su frecuencia.
+          Programación de <strong>Realizar</strong>, <strong>Supervisar</strong> y <strong>Auditar</strong> en una sola vista.
         </p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
         {/* ============ CALENDAR ============ */}
         <div>
           {/* Toolbar */}
@@ -161,6 +195,32 @@ export default function ProcessCalendar() {
               <span className="ml-2 text-sm font-semibold text-slate-800 capitalize">
                 {MES_LABELS[cursor.getMonth()]} de {cursor.getFullYear()}
               </span>
+            </div>
+
+            {/* Toggles por tipo de schedule */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {STYPES.map(t => {
+                const active = visibleTypes[t.v];
+                const Icon = t.Icon;
+                return (
+                  <button
+                    key={t.v}
+                    type="button"
+                    onClick={() => setVisibleTypes(v => ({ ...v, [t.v]: !v[t.v] }))}
+                    data-testid={`cal-toggle-${t.v}`}
+                    title={active ? `Ocultar ${t.lbl}` : `Mostrar ${t.lbl}`}
+                    className="text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1.5 border transition-colors"
+                    style={{
+                      background: active ? t.soft : '#fff',
+                      borderColor: active ? t.color : '#E2E8F0',
+                      color: active ? t.text : '#94A3B8',
+                    }}
+                  >
+                    <Icon className="w-3 h-3"/>
+                    {t.lbl}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="ml-auto flex items-center flex-wrap gap-2 text-xs">
@@ -214,13 +274,38 @@ export default function ProcessCalendar() {
 
         {/* ============ RIGHT SIDEBAR ============ */}
         <aside className="bg-white border border-slate-200 rounded-2xl p-4 self-start sticky top-4 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+          {/* Tabs por tipo */}
+          <div className="flex items-center gap-1 mb-3 bg-slate-50 border border-slate-200 rounded-xl p-1">
+            {STYPES.map(t => {
+              const active = sidebarType === t.v;
+              const Icon = t.Icon;
+              return (
+                <button
+                  key={t.v}
+                  onClick={() => setSidebarType(t.v)}
+                  data-testid={`cal-sidebar-tab-${t.v}`}
+                  className="flex-1 text-xs px-2 py-1.5 rounded-lg inline-flex items-center justify-center gap-1 transition-colors"
+                  style={{
+                    background: active ? t.color : 'transparent',
+                    color: active ? '#fff' : '#475569',
+                  }}
+                >
+                  <Icon className="w-3 h-3"/>
+                  {t.lbl}
+                </button>
+              );
+            })}
+          </div>
+
           {isAdmin ? (
             <>
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Sin programar</h2>
                 <span className="text-xs text-slate-400">{filteredUnscheduled.length}</span>
               </div>
-              <p className="text-xs text-slate-500 mb-3">Procesos activos que aún no tienen calendario. Click → asignar frecuencia.</p>
+              <p className="text-xs text-slate-500 mb-3">
+                Procesos sin <span style={{ color: STYPE_MAP[sidebarType].color }} className="font-semibold">{STYPE_MAP[sidebarType].lbl}</span>. Click → asignar frecuencia.
+              </p>
               <div className="relative mb-2">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"/>
                 <input
@@ -239,7 +324,7 @@ export default function ProcessCalendar() {
                 {filteredUnscheduled.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => setOpenSchedule({ proceso: p, schedule: null })}
+                    onClick={() => setOpenSchedule({ proceso: p, schedule: null, schedule_type: sidebarType })}
                     data-testid={`cal-schedule-process-${p.id}`}
                     className="w-full text-left border border-slate-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/30 group transition-colors"
                   >
@@ -261,17 +346,21 @@ export default function ProcessCalendar() {
               <div className="pt-3 mt-3 border-t border-slate-100">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Programados</h2>
-                  <span className="text-xs text-slate-400">{schedules.length}</span>
+                  <span className="text-xs text-slate-400">{sidebarSchedules.length}</span>
                 </div>
                 <div className="overflow-y-auto max-h-64 space-y-1.5 pr-1">
-                  {schedules.length === 0 && (
+                  {sidebarSchedules.length === 0 && (
                     <p className="text-xs text-slate-400 py-2 text-center">Aún no hay procesos programados.</p>
                   )}
-                  {schedules.map(s => (
+                  {sidebarSchedules.map(s => (
                     <button
-                      key={s.proceso_id}
-                      onClick={() => setOpenSchedule({ proceso: { id: s.proceso_id, codigo: s.proceso_codigo, nombre: s.proceso_nombre, tipo_color_fondo: s.tipo_color_fondo, area_nombre: s.area_nombre }, schedule: s })}
-                      data-testid={`cal-edit-schedule-${s.proceso_id}`}
+                      key={`${s.proceso_id}-${s.schedule_type}`}
+                      onClick={() => setOpenSchedule({
+                        proceso: { id: s.proceso_id, codigo: s.proceso_codigo, nombre: s.proceso_nombre, tipo_color_fondo: s.tipo_color_fondo, area_nombre: s.area_nombre },
+                        schedule: s,
+                        schedule_type: s.schedule_type || 'ejecucion',
+                      })}
+                      data-testid={`cal-edit-schedule-${s.proceso_id}-${s.schedule_type || 'ejecucion'}`}
                       className="w-full text-left border border-slate-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/30 group"
                     >
                       <div className="flex items-start gap-2">
@@ -284,6 +373,9 @@ export default function ProcessCalendar() {
                       <p className="text-[10px] text-slate-500 inline-flex items-center gap-1 mt-0.5">
                         <Repeat className="w-2.5 h-2.5"/>{describeSchedule(s)}
                       </p>
+                      {s.responsable_nombre && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">→ {s.responsable_nombre}</p>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -293,15 +385,17 @@ export default function ProcessCalendar() {
             <>
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Mis procesos</h2>
-                <span className="text-xs text-slate-400">{schedules.length}</span>
+                <span className="text-xs text-slate-400">{sidebarSchedules.length}</span>
               </div>
-              <p className="text-xs text-slate-500 mb-3">Procesos con calendario asignado a tu nombre.</p>
+              <p className="text-xs text-slate-500 mb-3">
+                Procesos con <span style={{ color: STYPE_MAP[sidebarType].color }} className="font-semibold">{STYPE_MAP[sidebarType].lbl}</span> asignado a tu nombre.
+              </p>
               <div className="overflow-y-auto flex-1 space-y-1.5 pr-1">
-                {schedules.length === 0 && (
-                  <p className="text-xs text-slate-400 py-4 text-center">No tienes procesos programados.</p>
+                {sidebarSchedules.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">No tienes procesos en este calendario.</p>
                 )}
-                {schedules.map(s => (
-                  <div key={s.proceso_id} className="border border-slate-200 rounded-lg p-2">
+                {sidebarSchedules.map(s => (
+                  <div key={`${s.proceso_id}-${s.schedule_type}`} className="border border-slate-200 rounded-lg p-2">
                     <div className="flex items-center gap-2">
                       <span className="text-[9px] font-mono px-1 py-0.5 rounded text-white" style={{ background: s.tipo_color_fondo || '#475569' }}>
                         {s.proceso_codigo}
@@ -324,6 +418,7 @@ export default function ProcessCalendar() {
         <ScheduleModal
           proceso={openSchedule.proceso}
           schedule={openSchedule.schedule}
+          scheduleType={openSchedule.schedule_type}
           staffList={staffList}
           onClose={() => setOpenSchedule(null)}
           onSave={handleSave}
@@ -371,17 +466,28 @@ function CalendarGrid({ cursor, eventsByDate, onOpenDay }) {
               {list.length > 0 && (<span className="text-[9px] text-slate-400">{list.length}</span>)}
             </div>
             <div className="space-y-0.5">
-              {visible.map(ev => (
-                <div
-                  key={ev.id}
-                  className="text-[10px] rounded px-1.5 py-0.5 truncate font-medium"
-                  style={{ background: ev.tipo_color_fondo || '#1F2937', color: ev.tipo_color_texto || '#fff' }}
-                  title={`${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
-                >
-                  {ev.hora && <span className="opacity-80 mr-1">{ev.hora}</span>}
-                  {ev.proceso_codigo}
-                </div>
-              ))}
+              {visible.map(ev => {
+                const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
+                return (
+                  <div
+                    key={ev.id}
+                    className="text-[10px] rounded px-1.5 py-0.5 truncate font-medium flex items-center gap-1"
+                    style={{
+                      background: ev.tipo_color_fondo || '#1F2937',
+                      color: ev.tipo_color_texto || '#fff',
+                      borderLeft: `3px solid ${st.color}`,
+                    }}
+                    title={`[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
+                  >
+                    <span
+                      className="inline-flex items-center justify-center text-[8px] font-bold rounded-sm w-3 h-3 flex-shrink-0"
+                      style={{ background: st.color, color: '#fff' }}
+                    >{st.short}</span>
+                    {ev.hora && <span className="opacity-80">{ev.hora}</span>}
+                    <span className="truncate">{ev.proceso_codigo}</span>
+                  </div>
+                );
+              })}
               {more > 0 && <div className="text-[10px] text-slate-500 italic">+ {more} más</div>}
             </div>
           </div>
@@ -409,7 +515,8 @@ function describeSchedule(s) {
 }
 
 // ===========================================================
-function ScheduleModal({ proceso, schedule, staffList, onClose, onSave, onDelete }) {
+function ScheduleModal({ proceso, schedule, scheduleType, staffList, onClose, onSave, onDelete }) {
+  const st = STYPE_MAP[scheduleType] || STYPE_MAP.ejecucion;
   const [form, setForm] = useState({
     tipo: schedule?.tipo || 'no_repite',
     fecha_unica: schedule?.fecha_unica || '',
@@ -438,24 +545,30 @@ function ScheduleModal({ proceso, schedule, staffList, onClose, onSave, onDelete
         hora: form.hora || null,
         responsable_id: form.responsable_id || null,
         activa: !!form.activa,
-      });
+      }, scheduleType);
     } catch (err) { alert(err.message); }
     setSaving(false);
   };
+
+  const Icon = st.Icon;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
       <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10" onClick={e => e.stopPropagation()}>
         <form onSubmit={submit} className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-          <header className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <header
+            className="px-5 py-3 border-b border-slate-100 flex items-center justify-between"
+            style={{ background: st.soft }}
+          >
             <div className="min-w-0">
-              <p className="text-[10px] font-mono text-slate-400">{proceso.codigo}</p>
-              <h3 className="font-semibold text-slate-900 truncate" style={{ fontFamily: 'Outfit' }}>
-                {schedule ? 'Editar programación' : 'Programar proceso'}
+              <p className="text-[10px] font-mono text-slate-500">{proceso.codigo}</p>
+              <h3 className="font-semibold text-slate-900 truncate inline-flex items-center gap-2" style={{ fontFamily: 'Outfit' }}>
+                <Icon className="w-4 h-4" style={{ color: st.color }}/>
+                {schedule ? 'Editar' : 'Programar'} · <span style={{ color: st.color }}>{st.lbl}</span>
               </h3>
-              <p className="text-xs text-slate-500 truncate">{proceso.nombre}</p>
+              <p className="text-xs text-slate-600 truncate">{proceso.nombre}</p>
             </div>
-            <button type="button" onClick={onClose} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
+            <button type="button" onClick={onClose} className="p-1 hover:bg-white/60 rounded"><X className="w-4 h-4"/></button>
           </header>
 
           <div className="p-5 space-y-4">
@@ -535,7 +648,9 @@ function ScheduleModal({ proceso, schedule, staffList, onClose, onSave, onDelete
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Responsable</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                  Responsable de {st.lbl.toLowerCase()}
+                </label>
                 <select
                   data-testid="schedule-responsable"
                   value={form.responsable_id}
@@ -558,7 +673,7 @@ function ScheduleModal({ proceso, schedule, staffList, onClose, onSave, onDelete
             {schedule ? (
               <button
                 type="button"
-                onClick={() => onDelete(proceso.id)}
+                onClick={() => onDelete(proceso.id, scheduleType)}
                 data-testid="schedule-delete-btn"
                 className="text-xs text-red-600 hover:bg-red-50 rounded-lg px-3 py-1.5 inline-flex items-center gap-1"
               >
@@ -571,7 +686,8 @@ function ScheduleModal({ proceso, schedule, staffList, onClose, onSave, onDelete
                 type="submit"
                 disabled={saving}
                 data-testid="schedule-save-btn"
-                className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-4 py-1.5 text-sm font-medium inline-flex items-center gap-1 disabled:opacity-50"
+                className="text-white rounded-lg px-4 py-1.5 text-sm font-medium inline-flex items-center gap-1 disabled:opacity-50"
+                style={{ background: st.color }}
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Plus className="w-3.5 h-3.5"/>}
                 {schedule ? 'Guardar' : 'Programar'}
@@ -598,24 +714,34 @@ function DayModal({ date, events, onClose }) {
             <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded"><X className="w-4 h-4"/></button>
           </header>
           <div className="p-5 space-y-2 max-h-[70vh] overflow-y-auto">
-            {events.map(ev => (
-              <div key={ev.id} className="border border-slate-200 rounded-xl p-3 flex items-center gap-3">
-                <span
-                  className="text-[9px] font-mono px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                  style={{ background: ev.tipo_color_fondo || '#475569' }}
-                >
-                  {ev.proceso_codigo}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{ev.proceso_nombre}</p>
-                  <p className="text-[11px] text-slate-500 inline-flex items-center gap-2">
-                    {ev.hora && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3"/>{ev.hora}</span>}
-                    {ev.responsable_nombre && <span>· {ev.responsable_nombre}</span>}
-                    {ev.area_nombre && <span>· {ev.area_nombre}</span>}
-                  </p>
+            {events.map(ev => {
+              const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
+              const Icon = st.Icon;
+              return (
+                <div key={ev.id} className="border border-slate-200 rounded-xl p-3 flex items-center gap-3" style={{ borderLeft: `4px solid ${st.color}` }}>
+                  <span
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                    style={{ background: ev.tipo_color_fondo || '#475569' }}
+                  >
+                    {ev.proceso_codigo}
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1 flex-shrink-0"
+                    style={{ background: st.soft, color: st.text }}
+                  >
+                    <Icon className="w-3 h-3"/>{st.lbl}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{ev.proceso_nombre}</p>
+                    <p className="text-[11px] text-slate-500 inline-flex items-center gap-2">
+                      {ev.hora && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3"/>{ev.hora}</span>}
+                      {ev.responsable_nombre && <span>· {ev.responsable_nombre}</span>}
+                      {ev.area_nombre && <span>· {ev.area_nombre}</span>}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

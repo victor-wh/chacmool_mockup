@@ -1,0 +1,61 @@
+{
+  "summary": "Testing completo (backend + frontend) de la ampliación del Calendario para 3 schedule_types (ejecucion/supervision/auditoria). Backend: 12/12 tests pytest passing. Frontend: toggles, tabs, modal contextual, badges R/S/A y DayModal verificados con Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "BACKEND: POST /api/auth/login (maria@empresa.com) devuelve token",
+    "BACKEND: GET /api/calendar/schedules devuelve lista con schedule_type poblado en todos los items",
+    "BACKEND: GET /api/calendar/schedules?schedule_type=supervision filtra correctamente",
+    "BACKEND: schedule_type='foo' retorna 400",
+    "BACKEND: PUT /api/calendar/schedules/{pid}?schedule_type=ejecucion|supervision|auditoria crea los 3 independientes para el mismo proceso (sin sobrescribir)",
+    "BACKEND: PUT con responsable_id distinto por tipo se persiste correctamente (verificado vía GET de cada tipo)",
+    "BACKEND: DELETE /api/calendar/schedules/{pid}?schedule_type=auditoria borra SOLO auditoria; ejecucion y supervision permanecen (verificado por GET 200/200/404)",
+    "BACKEND: GET /api/calendar/events?fecha_desde=2026-06-01&fecha_hasta=2026-06-30&schedule_types=ejecucion,supervision filtra y cada evento devuelve schedule_type",
+    "BACKEND: GET /api/calendar/events con schedule_types inválido retorna 400",
+    "BACKEND: GET /api/calendar/processes-without-schedule?schedule_type=auditoria incluye procesos que solo tienen ejecucion/supervision",
+    "BACKEND: processes-without-schedule con tipo inválido retorna 400",
+    "FRONTEND: Login con María (Admin) + navegación a /process/calendar exitosos",
+    "FRONTEND: 3 toggles visibles (cal-toggle-ejecucion/supervision/auditoria)",
+    "FRONTEND: 3 sidebar tabs visibles (cal-sidebar-tab-ejecucion/supervision/auditoria)",
+    "FRONTEND: Desactivar toggle 'Realizar' reduce eventos en grid de 17 a 6 (ocultan eventos R)",
+    "FRONTEND: Cambio a tab Supervisar muestra 7 procesos 'Sin programar' filtrados por tipo",
+    "FRONTEND: Click en proceso 'Sin programar' del tab Supervisar abre modal con título 'Programar · Supervisar'",
+    "FRONTEND: Guardar schedule de tipo supervision desde modal funciona (modal cierra y refresca)",
+    "FRONTEND: Cambio a tab Auditar muestra schedules tipo auditoria",
+    "FRONTEND: Cada evento muestra badge R/S/A con borde izquierdo de color azul/ámbar/morado",
+    "FRONTEND: DayModal al click en día muestra eventos con badges 'Realizar/Supervisar/Auditar'"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_calendar_schedules.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Buen diseño: STYPES centraliza branding (color/icon/label) en un solo lugar (/app/frontend/src/pages/process/ProcessCalendar.jsx)",
+    "Migración suave correcta en backend: docs legacy sin schedule_type se tratan como 'ejecucion' y al borrar ejecucion también se limpian docs legacy",
+    "GET /api/calendar/schedules/{proceso_id} hace fallback a docs legacy solo cuando schedule_type=ejecucion - correcto",
+    "Sin issues detectados; ProcessCalendar.jsx tiene 750 líneas, considerar extraer ScheduleModal/DayModal a componentes separados a futuro (no bloqueante)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_calendar_schedules.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 pytest)",
+    "frontend": "100% (todos los criterios validados)"
+  },
+  "test_credentials": {
+    "admin": "maria@empresa.com / maria123",
+    "empleado": "juan@empresa.com / juan123"
+  },
+  "seed_data_creation": "Tests crean 3 schedules temporales para un proceso 'sin auditoria' y luego los limpian en test_zz_cleanup",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Feature de 3 schedule_types (Realizar/Supervisar/Auditar) totalmente funcional. Cobertura: CRUD, filtros, coexistencia, borrado selectivo, processes-without-schedule, eventos virtuales con filtro por tipo, frontend toggles/tabs/modal/badges. Tests pytest en /app/backend/tests/test_calendar_schedules.py reutilizables. NOTE: el fixture test_proceso_id usa el primer proceso sin auditoria; si la base cambia, podría afectar el cleanup."
+}

@@ -2,7 +2,8 @@
 Routes for Process Calendar.
 Prefix: /api/calendar
 
-Cada proceso puede tener UN schedule (1:1, opcional) con:
+Cada proceso puede tener HASTA 3 schedules (uno por schedule_type):
+  - schedule_type: 'ejecucion' | 'supervision' | 'auditoria'
   - tipo: 'no_repite' | 'diario' | 'laborales' | 'semanal' | 'mensual' | 'anual'
   - fecha_unica (no_repite), dia_semana (semanal), dia_mes (mensual/anual), mes (anual)
   - hora (opcional), responsable_id (staff), activa
@@ -10,6 +11,8 @@ Cada proceso puede tener UN schedule (1:1, opcional) con:
 Los eventos del calendario se calculan en memoria a partir de los schedules.
 - Admin ve todos los eventos
 - Empleado ve únicamente los eventos cuyo responsable_id == su staff_id
+
+Migración suave: schedules existentes sin schedule_type se tratan como 'ejecucion'.
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional, List
@@ -26,6 +29,8 @@ router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
 # -------------------- Models --------------------
 TIPOS_VALIDOS = {"no_repite", "diario", "laborales", "semanal", "mensual", "anual"}
+SCHEDULE_TYPES = {"ejecucion", "supervision", "auditoria"}
+DEFAULT_SCHEDULE_TYPE = "ejecucion"
 
 
 class ScheduleIn(BaseModel):
@@ -47,6 +52,17 @@ def _now() -> datetime:
 def _safe_dom(year: int, month: int, day: int) -> int:
     last = calendar.monthrange(year, month)[1]
     return min(day, last)
+
+
+def _stype(sch: dict) -> str:
+    """Normaliza schedule_type para docs antiguos."""
+    return sch.get("schedule_type") or DEFAULT_SCHEDULE_TYPE
+
+
+def _validate_stype(schedule_type: str) -> str:
+    if schedule_type not in SCHEDULE_TYPES:
+        raise HTTPException(400, f"schedule_type inválido. Permitidos: {sorted(SCHEDULE_TYPES)}")
+    return schedule_type
 
 
 def _matches(sch: dict, d: date) -> bool:
@@ -93,6 +109,7 @@ def _date_range(d_from: date, d_to: date):
 
 async def _enrich_schedule(sch: dict) -> dict:
     """Adjunta datos del proceso y responsable."""
+    sch["schedule_type"] = _stype(sch)
     proc = await db.process_definitions.find_one({"id": sch["proceso_id"]}, {"_id": 0})
     if proc:
         sch["proceso_codigo"] = proc.get("codigo", "")
@@ -118,8 +135,15 @@ async def _get_user_staff(user: dict) -> Optional[dict]:
 # Schedules CRUD
 # ============================================================
 @router.get("/schedules")
-async def list_schedules(current_user: dict = Depends(get_current_active_user)):
-    """Lista todos los schedules (con datos del proceso/responsable). Admin: todos. Empleado: solo los suyos."""
+async def list_schedules(
+    schedule_type: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_active_user),
+):
+    """Lista todos los schedules (con datos del proceso/responsable).
+    - Admin: todos
+    - Empleado: solo los suyos
+    - Opcionalmente filtrar por schedule_type.
+    """
     is_admin = (current_user.get("role") or "").lower() == "admin"
     q = {}
     if not is_admin:
@@ -127,13 +151,28 @@ async def list_schedules(current_user: dict = Depends(get_current_active_user)):
         if not staff:
             return []
         q["responsable_id"] = staff["id"]
-    docs = await db.process_schedules.find(q, {"_id": 0}).to_list(2000)
+    docs = await db.process_schedules.find(q, {"_id": 0}).to_list(5000)
+    if schedule_type:
+        _validate_stype(schedule_type)
+        docs = [d for d in docs if _stype(d) == schedule_type]
     return [await _enrich_schedule(d) for d in docs]
 
 
 @router.get("/schedules/{proceso_id}")
-async def get_schedule(proceso_id: str, current_user: dict = Depends(get_current_active_user)):
-    sch = await db.process_schedules.find_one({"proceso_id": proceso_id}, {"_id": 0})
+async def get_schedule(
+    proceso_id: str,
+    schedule_type: str = Query(DEFAULT_SCHEDULE_TYPE),
+    current_user: dict = Depends(get_current_active_user),
+):
+    _validate_stype(schedule_type)
+    sch = await db.process_schedules.find_one(
+        {"proceso_id": proceso_id, "schedule_type": schedule_type}, {"_id": 0}
+    )
+    # Fallback para docs antiguos sin schedule_type (sólo aplica a 'ejecucion')
+    if not sch and schedule_type == DEFAULT_SCHEDULE_TYPE:
+        sch = await db.process_schedules.find_one(
+            {"proceso_id": proceso_id, "schedule_type": {"$exists": False}}, {"_id": 0}
+        )
     if not sch:
         raise HTTPException(404, "Sin programación")
     return await _enrich_schedule(sch)
@@ -143,8 +182,10 @@ async def get_schedule(proceso_id: str, current_user: dict = Depends(get_current
 async def upsert_schedule(
     proceso_id: str,
     payload: ScheduleIn,
+    schedule_type: str = Query(DEFAULT_SCHEDULE_TYPE),
     current_user: dict = Depends(require_admin),
 ):
+    _validate_stype(schedule_type)
     if payload.tipo not in TIPOS_VALIDOS:
         raise HTTPException(400, f"tipo inválido. Permitidos: {sorted(TIPOS_VALIDOS)}")
 
@@ -167,10 +208,20 @@ async def upsert_schedule(
     if payload.tipo == "anual" and not payload.mes:
         raise HTTPException(400, "mes (1-12) es requerido para 'anual'")
 
-    existing = await db.process_schedules.find_one({"proceso_id": proceso_id}, {"_id": 0})
+    # Buscar existente: primero (proceso_id, schedule_type); si no hay y es 'ejecucion',
+    # intentar legacy (sin schedule_type) para migrarlo.
+    existing = await db.process_schedules.find_one(
+        {"proceso_id": proceso_id, "schedule_type": schedule_type}, {"_id": 0}
+    )
+    if not existing and schedule_type == DEFAULT_SCHEDULE_TYPE:
+        existing = await db.process_schedules.find_one(
+            {"proceso_id": proceso_id, "schedule_type": {"$exists": False}}, {"_id": 0}
+        )
+
     doc = {
         "id": existing["id"] if existing else str(uuid4()),
         "proceso_id": proceso_id,
+        "schedule_type": schedule_type,
         "tipo": payload.tipo,
         "fecha_unica": payload.fecha_unica if payload.tipo == "no_repite" else None,
         "dia_semana": int(payload.dia_semana) if payload.tipo == "semanal" else None,
@@ -183,15 +234,29 @@ async def upsert_schedule(
         "updated_at": _now(),
     }
     if existing:
-        await db.process_schedules.update_one({"proceso_id": proceso_id}, {"$set": doc})
+        await db.process_schedules.update_one({"id": existing["id"]}, {"$set": doc})
     else:
         await db.process_schedules.insert_one(dict(doc))
     return await _enrich_schedule(doc)
 
 
 @router.delete("/schedules/{proceso_id}")
-async def delete_schedule(proceso_id: str, current_user: dict = Depends(require_admin)):
-    res = await db.process_schedules.delete_one({"proceso_id": proceso_id})
+async def delete_schedule(
+    proceso_id: str,
+    schedule_type: str = Query(DEFAULT_SCHEDULE_TYPE),
+    current_user: dict = Depends(require_admin),
+):
+    _validate_stype(schedule_type)
+    # Borra el del tipo solicitado; si es 'ejecucion' también limpia el legacy sin tipo.
+    if schedule_type == DEFAULT_SCHEDULE_TYPE:
+        res = await db.process_schedules.delete_many({
+            "proceso_id": proceso_id,
+            "$or": [{"schedule_type": schedule_type}, {"schedule_type": {"$exists": False}}],
+        })
+    else:
+        res = await db.process_schedules.delete_many({
+            "proceso_id": proceso_id, "schedule_type": schedule_type,
+        })
     return {"deleted": res.deleted_count > 0}
 
 
@@ -204,10 +269,14 @@ async def list_events(
     fecha_hasta: str = Query(..., description="YYYY-MM-DD"),
     proceso_id: Optional[str] = Query(None),
     responsable_id: Optional[str] = Query(None),
+    schedule_types: Optional[str] = Query(
+        None, description="Comma-separated: ejecucion,supervision,auditoria"
+    ),
     mine: bool = Query(False),
     current_user: dict = Depends(get_current_active_user),
 ):
-    """Calcula eventos virtuales en el rango. Admin ve todos; empleado solo los suyos."""
+    """Calcula eventos virtuales en el rango. Admin ve todos; empleado solo los suyos.
+    schedule_types permite limitar la salida a un subconjunto."""
     try:
         d_from = datetime.strptime(fecha_desde, "%Y-%m-%d").date()
         d_to = datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
@@ -215,6 +284,14 @@ async def list_events(
         raise HTTPException(400, "Fechas deben tener formato YYYY-MM-DD")
     if d_to < d_from:
         raise HTTPException(400, "fecha_hasta debe ser >= fecha_desde")
+
+    allowed_types = set(SCHEDULE_TYPES)
+    if schedule_types:
+        req = {t.strip() for t in schedule_types.split(",") if t.strip()}
+        bad = req - SCHEDULE_TYPES
+        if bad:
+            raise HTTPException(400, f"schedule_types inválidos: {sorted(bad)}")
+        allowed_types = req
 
     is_admin = (current_user.get("role") or "").lower() == "admin"
     q = {"activa": True}
@@ -228,7 +305,10 @@ async def list_events(
             return []
         q["responsable_id"] = staff["id"]
 
-    schedules = await db.process_schedules.find(q, {"_id": 0}).to_list(2000)
+    schedules = await db.process_schedules.find(q, {"_id": 0}).to_list(5000)
+    # filtrar por tipo (en memoria por compat con legacy docs)
+    schedules = [s for s in schedules if _stype(s) in allowed_types]
+
     # Pre-carga procesos
     proc_ids = list({s["proceso_id"] for s in schedules})
     procs = {}
@@ -248,12 +328,14 @@ async def list_events(
         if not proc:
             continue  # proceso inactivo o eliminado
         resp = resps.get(s.get("responsable_id")) if s.get("responsable_id") else None
+        s_type = _stype(s)
         for d in _date_range(d_from, d_to):
             if not _matches(s, d):
                 continue
             events.append({
                 "id": f"{s['id']}|{d.strftime('%Y-%m-%d')}",
                 "schedule_id": s["id"],
+                "schedule_type": s_type,
                 "proceso_id": proc["id"],
                 "proceso_codigo": proc.get("codigo", ""),
                 "proceso_nombre": proc.get("nombre", ""),
@@ -272,11 +354,17 @@ async def list_events(
 
 
 @router.get("/processes-without-schedule")
-async def list_processes_without_schedule(current_user: dict = Depends(require_admin)):
-    """Útil para el sidebar de 'procesos sin programar' tipo Planner."""
+async def list_processes_without_schedule(
+    schedule_type: str = Query(DEFAULT_SCHEDULE_TYPE),
+    current_user: dict = Depends(require_admin),
+):
+    """Procesos activos sin schedule del tipo solicitado."""
+    _validate_stype(schedule_type)
     scheduled_ids = set()
-    async for s in db.process_schedules.find({}, {"_id": 0, "proceso_id": 1}):
-        scheduled_ids.add(s["proceso_id"])
+    cursor = db.process_schedules.find({}, {"_id": 0, "proceso_id": 1, "schedule_type": 1})
+    async for s in cursor:
+        if _stype(s) == schedule_type:
+            scheduled_ids.add(s["proceso_id"])
     procs = await db.process_definitions.find(
         {"activo": True}, {"_id": 0}
     ).sort("nombre", 1).to_list(2000)

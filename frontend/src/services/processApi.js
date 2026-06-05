@@ -93,18 +93,27 @@ export const processAPI = {
   getMyAssignedSteps: () => api('/api/process/my-assigned-steps'),
 
   // ---------- Calendar ----------
-  listSchedules: () => api('/api/calendar/schedules'),
-  getSchedule: (procesoId) => api(`/api/calendar/schedules/${procesoId}`),
-  upsertSchedule: (procesoId, payload) =>
-    api(`/api/calendar/schedules/${procesoId}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteSchedule: (procesoId) =>
-    api(`/api/calendar/schedules/${procesoId}`, { method: 'DELETE' }),
-  listEvents: ({ from, to, procesoId, responsableId, mine } = {}) => {
+  // scheduleType: 'ejecucion' | 'supervision' | 'auditoria' (default ejecucion)
+  listSchedules: (scheduleType) => {
+    const qs = scheduleType ? `?schedule_type=${scheduleType}` : '';
+    return api(`/api/calendar/schedules${qs}`);
+  },
+  getSchedule: (procesoId, scheduleType = 'ejecucion') =>
+    api(`/api/calendar/schedules/${procesoId}?schedule_type=${scheduleType}`),
+  upsertSchedule: (procesoId, payload, scheduleType = 'ejecucion') =>
+    api(`/api/calendar/schedules/${procesoId}?schedule_type=${scheduleType}`, {
+      method: 'PUT', body: JSON.stringify(payload),
+    }),
+  deleteSchedule: (procesoId, scheduleType = 'ejecucion') =>
+    api(`/api/calendar/schedules/${procesoId}?schedule_type=${scheduleType}`, { method: 'DELETE' }),
+  listEvents: ({ from, to, procesoId, responsableId, mine, scheduleTypes } = {}) => {
     const params = new URLSearchParams({ fecha_desde: from, fecha_hasta: to });
     if (procesoId) params.set('proceso_id', procesoId);
     if (responsableId) params.set('responsable_id', responsableId);
     if (mine) params.set('mine', 'true');
+    if (scheduleTypes && scheduleTypes.length) params.set('schedule_types', scheduleTypes.join(','));
     return api(`/api/calendar/events?${params.toString()}`);
   },
-  listProcessesWithoutSchedule: () => api('/api/calendar/processes-without-schedule'),
+  listProcessesWithoutSchedule: (scheduleType = 'ejecucion') =>
+    api(`/api/calendar/processes-without-schedule?schedule_type=${scheduleType}`),
 };

@@ -140,7 +140,7 @@ export default function ProcessList() {
                 </td>
                 <td className="px-6 py-3">
                   {p.tipo_nombre ? (
-                    <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: p.tipo_color_fondo, color: p.tipo_color_texto }}>{p.tipo_nombre}</span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: p.tipo_color_fondo, color: p.tipo_color_texto }}>{p.tipo_nombre}</span>
                   ) : <span className="text-xs text-slate-400">—</span>}
                 </td>
                 <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{p.total_pasos}</td>

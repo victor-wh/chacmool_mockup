@@ -97,7 +97,7 @@ export default function AdminExecutions() {
                   <td className="px-6 py-3 font-mono text-xs text-slate-500">{e.codigo_ejecucion}</td>
                   <td className="px-6 py-3">
                     <p className="font-medium text-slate-900">{e.proceso_nombre}</p>
-                    {e.tipo_nombre && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: e.tipo_color_fondo, color: e.tipo_color_texto }}>{e.tipo_nombre}</span>}
+                    {e.tipo_nombre && <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: e.tipo_color_fondo, color: e.tipo_color_texto }}>{e.tipo_nombre}</span>}
                   </td>
                   <td className="px-6 py-3 text-sm text-slate-700">{e.staff_user_name}<p className="text-xs text-slate-400">{e.staff_area_nombre}</p></td>
                   <td className="px-6 py-3 text-sm text-slate-600">{e.fecha} {e.hora_inicio}</td>

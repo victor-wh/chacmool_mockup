@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, CheckCircle2, AlertTriangle, X, Camera, FileText,
   Image as ImageIcon, Info, ShieldCheck, ShieldX, FileWarning, Trash2, Check,
+  ChevronDown, ChevronUp, MessageSquare,
 } from 'lucide-react';
 import { supervisionAPI } from '../../services/supervisionApi';
 import { processAPI } from '../../services/processApi';
@@ -26,6 +27,7 @@ export default function SupervisionDetail() {
   const [completing, setCompleting] = useState(false);
   const [evidenceIdx, setEvidenceIdx] = useState(null);
   const [detailsIdx, setDetailsIdx] = useState(null);
+  const [expandedAll, setExpandedAll] = useState(false);
   const debounceRef = useRef({});
 
   const load = useCallback(async () => {
@@ -230,8 +232,18 @@ export default function SupervisionDetail() {
       {/* Steps list */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pasos a supervisar</h2>
+            {items.length > 0 && (
+              <button
+                onClick={() => setExpandedAll(v => !v)}
+                data-testid="supervision-toggle-all-details"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+              >
+                {expandedAll ? <ChevronUp className="w-3.5 h-3.5"/> : <ChevronDown className="w-3.5 h-3.5"/>}
+                {expandedAll ? 'Ocultar comentarios y evidencias' : 'Ver comentarios y evidencias'}
+              </button>
+            )}
             {!readOnly && items.some(i => i.cumplido !== true) && (
               <button
                 onClick={markAllYes}
@@ -336,6 +348,43 @@ export default function SupervisionDetail() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Comentarios + evidencias inline (cuando expandedAll) */}
+                  {expandedAll && (it.realizado_comentarios || (stepExec?.evidencias?.length > 0) || stepExec?.evidencia) && (
+                    <div className="px-6 pb-4" data-testid={`sup-expanded-${it.id}`}>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3">
+                        {it.realizado_comentarios && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3"/>Comentarios del operario
+                            </p>
+                            <p className="text-sm text-slate-700 whitespace-pre-line bg-white border border-slate-100 rounded-lg px-3 py-2">{it.realizado_comentarios}</p>
+                          </div>
+                        )}
+                        {(stepExec?.evidencias?.length > 0 || stepExec?.evidencia) && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                              <ImageIcon className="w-3 h-3"/>Evidencias adjuntas
+                              {(stepExec.evidencias?.length || (stepExec.evidencia ? 1 : 0)) > 0 && (
+                                <span className="text-slate-400 normal-case font-normal">({stepExec.evidencias?.length || 1})</span>
+                              )}
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                              {(stepExec.evidencias?.length > 0
+                                ? stepExec.evidencias
+                                : [{ data: stepExec.evidencia, nombre: stepExec.evidencia_nombre }]
+                              ).map((ev, ix) => (
+                                <a key={ix} href={ev.data} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-slate-200 bg-white hover:opacity-90">
+                                  <img src={ev.data} alt={ev.nombre || `evidencia-${ix + 1}`} className="w-full h-24 object-cover"/>
+                                  {ev.nombre && <p className="text-[10px] text-slate-500 truncate px-1.5 py-0.5 border-t border-slate-100">{ev.nombre}</p>}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Plan de acción inline */}
                   {failed && (

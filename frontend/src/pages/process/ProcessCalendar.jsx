@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Loader2, ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, X,
   Repeat, Trash2, Pencil, Filter, Search, Play, Eye, ClipboardCheck,
+  AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { processAPI } from '../../services/processApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -74,6 +75,7 @@ export default function ProcessCalendar() {
   // unscheduled depende del tab activo del sidebar
   const [unscheduled, setUnscheduled] = useState([]);
   const [filters, setFilters] = useState({ proceso_id: '', responsable_id: '', mine: false });
+  const [soloVencidas, setSoloVencidas] = useState(false);
   // toggles de tipos visibles en el grid
   const [visibleTypes, setVisibleTypes] = useState({ ejecucion: true, supervision: true, auditoria: true });
   // tab activo del sidebar (controla el contexto al crear un nuevo schedule)
@@ -145,9 +147,17 @@ export default function ProcessCalendar() {
 
   const eventsByDate = useMemo(() => {
     const m = {};
-    events.forEach(e => { (m[e.fecha] = m[e.fecha] || []).push(e); });
+    events.forEach(e => {
+      if (soloVencidas && e.estado_realizacion !== 'vencida') return;
+      (m[e.fecha] = m[e.fecha] || []).push(e);
+    });
     return m;
-  }, [events]);
+  }, [events, soloVencidas]);
+
+  const overdueCount = useMemo(
+    () => events.filter(e => e.estado_realizacion === 'vencida').length,
+    [events],
+  );
 
   const refreshSchedules = async () => {
     const sch = await processAPI.listSchedules();
@@ -291,6 +301,17 @@ export default function ProcessCalendar() {
                 </label>
               )}
               <span className="text-slate-400 ml-1">{events.length} evento(s)</span>
+              {overdueCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSoloVencidas(v => !v)}
+                  data-testid="cal-overdue-toggle"
+                  className={`text-[11px] font-semibold px-2 py-1 rounded-full inline-flex items-center gap-1 border ml-1 transition-colors ${soloVencidas ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}
+                  title="Mostrar sólo eventos vencidos"
+                >
+                  <AlertTriangle className="w-3 h-3"/>{overdueCount} vencida{overdueCount === 1 ? '' : 's'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -524,26 +545,42 @@ function WeekGrid({ cursor, eventsByDate, onOpenDay }) {
             <div className="space-y-1">
               {list.map(ev => {
                 const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
+                const overdue = ev.estado_realizacion === 'vencida';
+                const done = ev.estado_realizacion === 'completada';
+                const bg = overdue ? '#FEE2E2' : (done ? '#DCFCE7' : st.soft);
+                const border = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
+                const txt = overdue ? '#991B1B' : (done ? '#166534' : st.text);
+                const badgeBg = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
                 return (
                   <div
                     key={ev.id}
-                    className="text-[11px] rounded-xl pl-2 pr-2.5 py-1.5 font-medium flex items-start gap-1.5 border"
+                    className="text-[11px] rounded-xl pl-2 pr-2.5 py-1.5 font-medium flex items-start gap-1.5 border relative"
                     style={{
-                      background: st.soft,
-                      color: st.text,
-                      borderColor: st.color,
+                      background: bg,
+                      color: txt,
+                      borderColor: border,
                       boxShadow: `inset 4px 0 0 0 ${ev.tipo_color_fondo || '#94A3B8'}`,
                     }}
-                    title={`[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
+                    title={`${overdue ? '⚠ VENCIDA · ' : done ? '✓ Completada · ' : ''}[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
                   >
                     <span
                       className="inline-flex items-center justify-center text-[9px] font-bold rounded-full w-4 h-4 flex-shrink-0 mt-0.5 ml-1"
-                      style={{ background: st.color, color: '#fff' }}
+                      style={{ background: badgeBg, color: '#fff' }}
                     >{st.short}</span>
                     <div className="min-w-0 flex-1">
                       {ev.hora && <div className="opacity-80 text-[10px]">{ev.hora}</div>}
                       <div className="font-mono text-[10px] opacity-90">{ev.proceso_codigo}</div>
                       <div className="leading-tight line-clamp-2">{ev.proceso_nombre}</div>
+                      {overdue && (
+                        <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-red-700">
+                          <AlertTriangle className="w-2.5 h-2.5"/>Vencida
+                        </div>
+                      )}
+                      {done && (
+                        <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
+                          <CheckCircle2 className="w-2.5 h-2.5"/>Realizada
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -588,24 +625,32 @@ function CalendarGrid({ cursor, eventsByDate, onOpenDay }) {
             <div className="space-y-0.5">
               {visible.map(ev => {
                 const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
+                const overdue = ev.estado_realizacion === 'vencida';
+                const done = ev.estado_realizacion === 'completada';
+                const bg = overdue ? '#FEE2E2' : (done ? '#DCFCE7' : st.soft);
+                const border = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
+                const txt = overdue ? '#991B1B' : (done ? '#166534' : st.text);
+                const titlePrefix = overdue ? '⚠ VENCIDA · ' : (done ? '✓ Completada · ' : '');
                 return (
                   <div
                     key={ev.id}
-                    className="text-[10px] rounded-full pl-1 pr-2 py-0.5 truncate font-medium flex items-center gap-1 border"
+                    className={`text-[10px] rounded-full pl-1 pr-2 py-0.5 truncate font-medium flex items-center gap-1 border ${overdue ? 'animate-pulse-subtle' : ''}`}
                     style={{
-                      background: st.soft,
-                      color: st.text,
-                      borderColor: st.color,
+                      background: bg,
+                      color: txt,
+                      borderColor: border,
                       boxShadow: `inset 3px 0 0 0 ${ev.tipo_color_fondo || '#94A3B8'}`,
                     }}
-                    title={`[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
+                    title={`${titlePrefix}[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
                   >
                     <span
                       className="inline-flex items-center justify-center text-[8px] font-bold rounded-full w-3 h-3 flex-shrink-0 ml-1"
-                      style={{ background: st.color, color: '#fff' }}
+                      style={{ background: overdue ? '#DC2626' : (done ? '#16A34A' : st.color), color: '#fff' }}
                     >{st.short}</span>
                     {ev.hora && <span className="opacity-80">{ev.hora}</span>}
                     <span className="truncate">{ev.proceso_codigo}</span>
+                    {overdue && <AlertTriangle className="w-2.5 h-2.5 flex-shrink-0 text-red-600"/>}
+                    {done && <CheckCircle2 className="w-2.5 h-2.5 flex-shrink-0 text-emerald-600"/>}
                   </div>
                 );
               })}
@@ -838,8 +883,15 @@ function DayModal({ date, events, onClose }) {
             {events.map(ev => {
               const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
               const Icon = st.Icon;
+              const overdue = ev.estado_realizacion === 'vencida';
+              const done = ev.estado_realizacion === 'completada';
+              const borderColor = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
               return (
-                <div key={ev.id} className="border border-slate-200 rounded-xl p-3 flex items-center gap-3" style={{ borderLeft: `4px solid ${st.color}` }}>
+                <div
+                  key={ev.id}
+                  className={`border rounded-xl p-3 flex items-center gap-3 ${overdue ? 'bg-red-50 border-red-200' : done ? 'bg-emerald-50 border-emerald-200' : 'border-slate-200'}`}
+                  style={{ borderLeft: `4px solid ${borderColor}` }}
+                >
                   <span
                     className="text-[9px] font-mono px-1.5 py-0.5 rounded text-white flex-shrink-0"
                     style={{ background: ev.tipo_color_fondo || '#475569' }}
@@ -852,12 +904,25 @@ function DayModal({ date, events, onClose }) {
                   >
                     <Icon className="w-3 h-3"/>{st.lbl}
                   </span>
+                  {overdue && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 flex-shrink-0 bg-red-600 text-white">
+                      <AlertTriangle className="w-3 h-3"/>VENCIDA
+                    </span>
+                  )}
+                  {done && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 flex-shrink-0 bg-emerald-600 text-white">
+                      <CheckCircle2 className="w-3 h-3"/>REALIZADA
+                    </span>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 truncate">{ev.proceso_nombre}</p>
-                    <p className="text-[11px] text-slate-500 inline-flex items-center gap-2">
+                    <p className="text-[11px] text-slate-500 inline-flex items-center gap-2 flex-wrap">
                       {ev.hora && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3"/>{ev.hora}</span>}
                       {ev.responsable_nombre && <span>· {ev.responsable_nombre}</span>}
                       {ev.area_nombre && <span>· {ev.area_nombre}</span>}
+                      {done && ev.completada_codigos?.length > 0 && (
+                        <span className="text-emerald-700">· {ev.completada_codigos.join(', ')}</span>
+                      )}
                     </p>
                   </div>
                 </div>

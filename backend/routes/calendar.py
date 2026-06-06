@@ -322,6 +322,50 @@ async def list_events(
         async for st in db.process_staff.find({"id": {"$in": resp_ids}}, {"_id": 0}):
             resps[st["id"]] = st
 
+    # Pre-carga registros para detectar "vencido / completado":
+    #   - ejecuciones (process_executions) por (proceso_id, fecha) para schedule_type='ejecucion'
+    #   - supervisiones (supervisions) por (proceso_id, fecha) para schedule_type='supervision'
+    # auditoria: aún no hay módulo. Sólo se considera "vencida" o "futura" por fecha.
+    today_iso = date.today().strftime("%Y-%m-%d")
+    span_from = d_from.strftime("%Y-%m-%d")
+    span_to = d_to.strftime("%Y-%m-%d")
+    execs_by_key: dict = {}
+    sups_by_key: dict = {}
+    if proc_ids and "ejecucion" in allowed_types:
+        async for ex in db.process_executions.find(
+            {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_from, "$lte": span_to}},
+            {"_id": 0, "id": 1, "proceso_id": 1, "fecha": 1, "estado": 1, "codigo_ejecucion": 1},
+        ):
+            key = (ex["proceso_id"], ex["fecha"])
+            execs_by_key.setdefault(key, []).append(ex)
+    if proc_ids and "supervision" in allowed_types:
+        async for sup in db.supervisions.find(
+            {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_from, "$lte": span_to}},
+            {"_id": 0, "id": 1, "proceso_id": 1, "fecha": 1, "estado": 1, "codigo": 1},
+        ):
+            key = (sup["proceso_id"], sup["fecha"])
+            sups_by_key.setdefault(key, []).append(sup)
+
+    def _estado_for(s_type: str, proc_id: str, fecha_iso: str) -> tuple:
+        """Devuelve (estado_realizacion, completada_ids, completada_codigos).
+        estado in: 'futura' | 'hoy' | 'completada' | 'vencida'.
+        Para 'auditoria' no se puede comprobar (no hay módulo); solo se calcula por fecha.
+        """
+        if fecha_iso > today_iso:
+            return "futura", [], []
+        if s_type == "ejecucion":
+            matches = execs_by_key.get((proc_id, fecha_iso), [])
+            if matches:
+                return "completada", [m["id"] for m in matches], [m.get("codigo_ejecucion") for m in matches]
+        elif s_type == "supervision":
+            matches = sups_by_key.get((proc_id, fecha_iso), [])
+            if matches:
+                return "completada", [m["id"] for m in matches], [m.get("codigo") for m in matches]
+        # No completada
+        if fecha_iso == today_iso:
+            return "hoy", [], []
+        return "vencida", [], []
+
     events = []
     for s in schedules:
         proc = procs.get(s["proceso_id"])
@@ -332,8 +376,10 @@ async def list_events(
         for d in _date_range(d_from, d_to):
             if not _matches(s, d):
                 continue
+            fecha_iso = d.strftime("%Y-%m-%d")
+            estado_real, completada_ids, completada_codigos = _estado_for(s_type, proc["id"], fecha_iso)
             events.append({
-                "id": f"{s['id']}|{d.strftime('%Y-%m-%d')}",
+                "id": f"{s['id']}|{fecha_iso}",
                 "schedule_id": s["id"],
                 "schedule_type": s_type,
                 "proceso_id": proc["id"],
@@ -343,11 +389,14 @@ async def list_events(
                 "tipo_color_fondo": proc.get("tipo_color_fondo", "#3B82F6"),
                 "tipo_color_texto": proc.get("tipo_color_texto", "#FFFFFF"),
                 "area_nombre": proc.get("area_nombre", ""),
-                "fecha": d.strftime("%Y-%m-%d"),
+                "fecha": fecha_iso,
                 "hora": s.get("hora") or None,
                 "tipo_recurrencia": s["tipo"],
                 "responsable_id": s.get("responsable_id"),
                 "responsable_nombre": (resp or {}).get("user_name", "") if resp else "",
+                "estado_realizacion": estado_real,
+                "completada_ids": completada_ids,
+                "completada_codigos": completada_codigos,
             })
     events.sort(key=lambda e: (e["fecha"], e["hora"] or "", e["proceso_codigo"]))
     return events

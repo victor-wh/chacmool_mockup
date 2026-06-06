@@ -369,14 +369,16 @@ export default function SupervisionDetail() {
                                 <span className="text-slate-400 normal-case font-normal">({stepExec.evidencias?.length || 1})</span>
                               )}
                             </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {(stepExec.evidencias?.length > 0
                                 ? stepExec.evidencias
                                 : [{ data: stepExec.evidencia, nombre: stepExec.evidencia_nombre }]
                               ).map((ev, ix) => (
-                                <a key={ix} href={ev.data} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-slate-200 bg-white hover:opacity-90">
-                                  <img src={ev.data} alt={ev.nombre || `evidencia-${ix + 1}`} className="w-full h-24 object-cover"/>
-                                  {ev.nombre && <p className="text-[10px] text-slate-500 truncate px-1.5 py-0.5 border-t border-slate-100">{ev.nombre}</p>}
+                                <a key={ix} href={ev.data} target="_blank" rel="noreferrer" className="group block rounded-lg overflow-hidden border border-slate-200 bg-white hover:border-blue-300 hover:shadow-md transition" title={ev.nombre || `Abrir evidencia ${ix + 1}`}>
+                                  <div className="bg-slate-100 flex items-center justify-center" style={{ height: '320px' }}>
+                                    <img src={ev.data} alt={ev.nombre || `evidencia-${ix + 1}`} className="max-w-full max-h-full object-contain group-hover:scale-[1.01] transition-transform"/>
+                                  </div>
+                                  {ev.nombre && <p className="text-xs text-slate-600 truncate px-2 py-1.5 border-t border-slate-100 bg-white">{ev.nombre}</p>}
                                 </a>
                               ))}
                             </div>

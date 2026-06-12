@@ -605,9 +605,6 @@ function WeekGrid({ cursor, eventsByDate, onOpenDay }) {
                           <CheckCircle2 className="w-2.5 h-2.5"/>Realizada
                         </div>
                       )}
-                      <div className="mt-1.5">
-                        <EventActionButton ev={ev}/>
-                      </div>
                     </div>
                   </div>
                 );

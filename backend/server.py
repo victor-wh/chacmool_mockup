@@ -31,6 +31,7 @@ from routes.pdi import router as pdi_router
 from routes.process import router as process_router
 from routes.calendar import router as calendar_router
 from routes.supervision import router as supervision_router
+from routes.audit import router as audit_router
 
 # Include routers
 app.include_router(auth_router)
@@ -43,6 +44,7 @@ app.include_router(pdi_router)
 app.include_router(process_router)
 app.include_router(calendar_router)
 app.include_router(supervision_router)
+app.include_router(audit_router)
 
 @app.get("/api/health")
 async def health_check():

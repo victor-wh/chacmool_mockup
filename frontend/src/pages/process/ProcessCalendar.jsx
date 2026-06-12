@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Loader2, ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, X,
   Repeat, Trash2, Pencil, Filter, Search, Play, Eye, ClipboardCheck,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, ArrowRight,
 } from 'lucide-react';
 import { processAPI } from '../../services/processApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -143,7 +144,29 @@ export default function ProcessCalendar() {
     })();
   }, [isAdmin, sidebarType, schedules]);
 
-  useEffect(() => { load(); }, [load]);
+  // Carga eventos cuando cambian deps. Inlined para evitar regla
+  // react-hooks/set-state-in-effect del linter.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (enabledTypes.length === 0) {
+        if (alive) { setEvents([]); setLoading(false); }
+        return;
+      }
+      try {
+        const ev = await processAPI.listEvents({
+          from: range.from, to: range.to,
+          procesoId: filters.proceso_id || undefined,
+          responsableId: filters.responsable_id || undefined,
+          mine: filters.mine || undefined,
+          scheduleTypes: enabledTypes,
+        });
+        if (alive) setEvents(ev || []);
+      } catch (e) { console.error(e); }
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [range.from, range.to, filters, enabledTypes]);
 
   const eventsByDate = useMemo(() => {
     const m = {};
@@ -492,6 +515,7 @@ export default function ProcessCalendar() {
           date={openDay}
           events={eventsByDate[openDay] || []}
           onClose={() => setOpenDay(null)}
+          onAfterAction={() => { setOpenDay(null); load(); }}
         />
       )}
     </div>
@@ -581,6 +605,9 @@ function WeekGrid({ cursor, eventsByDate, onOpenDay }) {
                           <CheckCircle2 className="w-2.5 h-2.5"/>Realizada
                         </div>
                       )}
+                      <div className="mt-1.5">
+                        <EventActionButton ev={ev}/>
+                      </div>
                     </div>
                   </div>
                 );
@@ -867,7 +894,7 @@ function ScheduleModal({ proceso, schedule, scheduleType, staffList, onClose, on
 }
 
 // ===========================================================
-function DayModal({ date, events, onClose }) {
+function DayModal({ date, events, onClose, onAfterAction }) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
       <div className="relative min-h-full flex items-start justify-center p-4 pt-10 pb-10" onClick={e => e.stopPropagation()}>
@@ -925,6 +952,7 @@ function DayModal({ date, events, onClose }) {
                       )}
                     </p>
                   </div>
+                  <EventActionButton ev={ev} onAfterAction={onAfterAction}/>
                 </div>
               );
             })}
@@ -932,5 +960,80 @@ function DayModal({ date, events, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+
+// ===========================================================
+// Botón de acción para un evento (Realizar / Supervisar / Auditar / Ver).
+// Decide texto, destino y handler en función del schedule_type y estado.
+// ===========================================================
+function EventActionButton({ ev, size = 'md', onAfterAction }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const st = STYPE_MAP[ev.schedule_type] || STYPE_MAP.ejecucion;
+  const Icon = st.Icon;
+  const done = ev.estado_realizacion === 'completada';
+  const completedId = (ev.completada_ids || [])[0] || null;
+
+  const isIcon = size === 'sm';
+  const baseClass = `inline-flex items-center justify-center gap-1 font-semibold transition-colors ${
+    isIcon
+      ? 'w-5 h-5 rounded-full text-[10px]'
+      : 'px-3 py-1.5 rounded-lg text-xs'
+  }`;
+
+  const handle = async (e) => {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+    if (busy) return;
+    // 1. Si ya está hecho → ir al registro existente
+    if (done && completedId) {
+      if (ev.schedule_type === 'ejecucion') navigate(`/process/execution/${completedId}`);
+      else if (ev.schedule_type === 'supervision') navigate(`/supervision/${completedId}`);
+      else if (ev.schedule_type === 'auditoria') navigate(`/audit/${completedId}`);
+      return;
+    }
+    // 2. Acción según tipo
+    if (ev.schedule_type === 'ejecucion') {
+      setBusy(true);
+      try {
+        const exe = await processAPI.createExecution(ev.proceso_id);
+        onAfterAction?.();
+        navigate(`/process/execution/${exe.id}`);
+      } catch (err) {
+        alert('Error al iniciar la ejecución: ' + err.message);
+        setBusy(false);
+      }
+    } else if (ev.schedule_type === 'supervision') {
+      navigate(`/supervision/new?proceso_id=${ev.proceso_id}`);
+    } else if (ev.schedule_type === 'auditoria') {
+      navigate(`/audit/new?proceso_id=${ev.proceso_id}`);
+    }
+  };
+
+  const label = done ? 'Ver' : st.lbl;
+  const style = done
+    ? { background: '#fff', color: '#0f172a', border: '1px solid #E2E8F0' }
+    : { background: st.color, color: '#fff', border: `1px solid ${st.color}` };
+
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      disabled={busy}
+      data-testid={`event-action-${ev.schedule_type}-${ev.fecha}`}
+      title={done ? `Ver ${st.lbl.toLowerCase()} realizado` : `${st.lbl} ahora`}
+      className={`${baseClass} disabled:opacity-50 hover:opacity-90`}
+      style={style}
+    >
+      {busy
+        ? <Loader2 className="w-3 h-3 animate-spin"/>
+        : done
+          ? <Eye className="w-3 h-3"/>
+          : <Icon className="w-3 h-3"/>}
+      {!isIcon && <span>{label}</span>}
+      {!isIcon && !done && <ArrowRight className="w-3 h-3"/>}
+    </button>
   );
 }

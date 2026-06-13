@@ -8,27 +8,88 @@ import { softTint } from '../../lib/color';
 const ALL_TAB = '__all__';
 const NO_AREA = '__no_area__';
 
+const DOW_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function describeSchedule(s) {
+  if (!s) return '—';
+  const hora = s.hora ? ` · ${s.hora}` : '';
+  switch (s.tipo) {
+    case 'no_repite': return `Único: ${s.fecha_unica || '—'}${hora}`;
+    case 'diario':    return `Diario${hora}`;
+    case 'laborales': return `Lun-Vie${hora}`;
+    case 'semanal': {
+      const v = s.dia_semana;
+      if (v === null || v === undefined) return `Semanal${hora}`;
+      return `${DOW_FULL[v] || '—'}${hora}`;
+    }
+    case 'mensual': return `Día ${s.dia_mes} de cada mes${hora}`;
+    case 'anual':   return `${s.dia_mes} ${MESES[(s.mes || 1) - 1]}${hora}`;
+    default: return '—';
+  }
+}
+
 export default function ProcessList() {
   const [processes, setProcesses] = useState([]);
   const [executionsToday, setExecutionsToday] = useState({});
+  const [schedulesMap, setSchedulesMap] = useState({}); // proceso_id -> { ejecucion?, supervision?, auditoria? }
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeArea, setActiveArea] = useState(ALL_TAB);
   const navigate = useNavigate();
 
   const load = async () => {
+    setLoading(true);
     try {
-      const procs = await processAPI.listProcesses();
-      setProcesses(procs);
       const today = new Date().toISOString().slice(0, 10);
-      const execs = await processAPI.listExecutions({ fecha: today });
+      const [procs, execs, schedules] = await Promise.all([
+        processAPI.listProcesses(),
+        processAPI.listExecutions({ fecha: today }),
+        processAPI.listSchedules().catch(() => []),
+      ]);
+      setProcesses(procs);
       const counts = {};
       execs.forEach(e => { counts[e.proceso_id] = (counts[e.proceso_id] || 0) + 1; });
       setExecutionsToday(counts);
+      const sm = {};
+      (schedules || []).forEach(s => {
+        const stype = s.schedule_type || 'ejecucion';
+        sm[s.proceso_id] = sm[s.proceso_id] || {};
+        sm[s.proceso_id][stype] = s;
+      });
+      setSchedulesMap(sm);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const [procs, execs, schedules] = await Promise.all([
+          processAPI.listProcesses(),
+          processAPI.listExecutions({ fecha: today }),
+          processAPI.listSchedules().catch(() => []),
+        ]);
+        if (!alive) return;
+        setProcesses(procs);
+        const counts = {};
+        execs.forEach(e => { counts[e.proceso_id] = (counts[e.proceso_id] || 0) + 1; });
+        setExecutionsToday(counts);
+        const sm = {};
+        (schedules || []).forEach(s => {
+          const stype = s.schedule_type || 'ejecucion';
+          sm[s.proceso_id] = sm[s.proceso_id] || {};
+          sm[s.proceso_id][stype] = s;
+        });
+        setSchedulesMap(sm);
+      } catch (e) { console.error(e); }
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, []);
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`¿Eliminar el proceso "${name}"? Esta acción no se puede deshacer.`)) return;
@@ -120,6 +181,10 @@ export default function ProcessList() {
               <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Código</th>
               <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Nombre</th>
               <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Tipo</th>
+              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Responsable</th>
+              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Frecuencia Proceso</th>
+              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Supervisión</th>
+              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Frecuencia Auditoría</th>
               <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Pasos</th>
               <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Hoy</th>
               <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Estado</th>
@@ -128,11 +193,14 @@ export default function ProcessList() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-12 text-slate-400">
+              <tr><td colSpan={11} className="text-center py-12 text-slate-400">
                 <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300"/>Sin procesos en esta área
               </td></tr>
             )}
-            {filtered.map(p => (
+            {filtered.map(p => {
+              const sch = schedulesMap[p.id] || {};
+              const respName = sch.ejecucion?.responsable_nombre || '—';
+              return (
               <tr key={p.id} className="hover:bg-slate-50" data-testid={`process-row-${p.id}`}>
                 <td className="px-6 py-3 font-mono text-xs text-slate-500">{p.codigo}</td>
                 <td className="px-6 py-3">
@@ -149,6 +217,10 @@ export default function ProcessList() {
                     </span>
                   ) : <span className="text-xs text-slate-400">—</span>}
                 </td>
+                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{respName}</td>
+                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{describeSchedule(sch.ejecucion)}</td>
+                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{describeSchedule(sch.supervision)}</td>
+                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{describeSchedule(sch.auditoria)}</td>
                 <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{p.total_pasos}</td>
                 <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{executionsToday[p.id] || 0}</td>
                 <td className="px-6 py-3 text-center">
@@ -163,7 +235,7 @@ export default function ProcessList() {
                   </div>
                 </td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>

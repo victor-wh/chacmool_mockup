@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { supervisionAPI } from '../../services/supervisionApi';
-import { Loader2, Eye, Search, Filter, ClipboardCheck, X } from 'lucide-react';
+import { auditAPI } from '../../services/auditApi';
+import { Loader2, Eye, Search, Filter, ClipboardCheck, ShieldCheck, X } from 'lucide-react';
 import { softTint } from '../../lib/color';
 
 export default function AdminExecutions() {
@@ -26,22 +27,28 @@ export default function AdminExecutions() {
   const [search, setSearch] = useState('');
   const [supMap, setSupMap] = useState({});
   const [supervising, setSupervising] = useState(null);
+  const [audMap, setAudMap] = useState({}); // ejecucion_id -> {id, codigo}
+  const [auditing, setAuditing] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [exes, procs, sups] = await Promise.all([
+        const [exes, procs, sups, auds] = await Promise.all([
           processAPI.listExecutions({ fecha: filterDate || undefined, procesoId: filterProc || undefined }),
           processAPI.listProcesses(),
           supervisionAPI.list().catch(() => []),
+          auditAPI.list().catch(() => []),
         ]);
         if (!alive) return;
         setItems(exes); setProcesses(procs);
-        const map = {};
-        (sups || []).forEach(s => { map[s.ejecucion_id] = { id: s.id, codigo: s.codigo, estado: s.estado }; });
-        setSupMap(map);
+        const sm = {};
+        (sups || []).forEach(s => { sm[s.ejecucion_id] = { id: s.id, codigo: s.codigo, estado: s.estado }; });
+        setSupMap(sm);
+        const am = {};
+        (auds || []).forEach(a => { am[a.ejecucion_id] = { id: a.id, codigo: a.codigo, estado: a.estado }; });
+        setAudMap(am);
       } catch (e) { console.error(e); }
       if (alive) setLoading(false);
     })();
@@ -60,6 +67,20 @@ export default function AdminExecutions() {
       const sup = await supervisionAPI.create(e.id);
       navigate(`/supervision/${sup.id}`);
     } catch (err) { alert(err.message); setSupervising(null); }
+  };
+
+  const handleAudit = async (ev, e) => {
+    ev.stopPropagation();
+    const existing = audMap[e.id];
+    if (existing) {
+      navigate(`/audit/${existing.id}`);
+      return;
+    }
+    setAuditing(e.id);
+    try {
+      const aud = await auditAPI.create(e.id);
+      navigate(`/audit/${aud.id}`);
+    } catch (err) { alert(err.message); setAuditing(null); }
   };
 
   const filtered = items.filter(e => {
@@ -174,6 +195,21 @@ export default function AdminExecutions() {
                           >
                             {supervising === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <ClipboardCheck className="w-3.5 h-3.5"/>}
                             {sup ? sup.codigo : 'Supervisión'}
+                          </button>
+                        );
+                      })()}
+                      {(() => {
+                        const aud = audMap[e.id];
+                        return (
+                          <button
+                            onClick={(ev) => handleAudit(ev, e)}
+                            disabled={auditing === e.id}
+                            data-testid={`audit-btn-${e.id}`}
+                            title={aud ? `Abrir auditoría ${aud.codigo}` : 'Iniciar auditoría'}
+                            className={`inline-flex items-center gap-1 text-xs font-medium rounded-lg px-2.5 py-1 disabled:opacity-50 ${aud ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-violet-700 hover:bg-violet-800 text-white'}`}
+                          >
+                            {auditing === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <ShieldCheck className="w-3.5 h-3.5"/>}
+                            {aud ? aud.codigo : 'Auditoría'}
                           </button>
                         );
                       })()}

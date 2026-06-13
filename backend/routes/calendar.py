@@ -331,6 +331,7 @@ async def list_events(
     span_to = d_to.strftime("%Y-%m-%d")
     execs_by_key: dict = {}
     sups_by_key: dict = {}
+    auds_by_key: dict = {}
     if proc_ids and "ejecucion" in allowed_types:
         async for ex in db.process_executions.find(
             {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_from, "$lte": span_to}},
@@ -345,12 +346,17 @@ async def list_events(
         ):
             key = (sup["proceso_id"], sup["fecha"])
             sups_by_key.setdefault(key, []).append(sup)
+    if proc_ids and "auditoria" in allowed_types:
+        async for aud in db.audits.find(
+            {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_from, "$lte": span_to}},
+            {"_id": 0, "id": 1, "proceso_id": 1, "fecha": 1, "estado": 1, "codigo": 1},
+        ):
+            key = (aud["proceso_id"], aud["fecha"])
+            auds_by_key.setdefault(key, []).append(aud)
 
     def _estado_for(s_type: str, proc_id: str, fecha_iso: str) -> tuple:
         """Devuelve (estado_realizacion, completada_ids, completada_codigos).
-        estado in: 'futura' | 'hoy' | 'completada' | 'vencida'.
-        Para 'auditoria' no se puede comprobar (no hay módulo); solo se calcula por fecha.
-        """
+        estado in: 'futura' | 'hoy' | 'completada' | 'vencida'."""
         if fecha_iso > today_iso:
             return "futura", [], []
         if s_type == "ejecucion":
@@ -359,6 +365,10 @@ async def list_events(
                 return "completada", [m["id"] for m in matches], [m.get("codigo_ejecucion") for m in matches]
         elif s_type == "supervision":
             matches = sups_by_key.get((proc_id, fecha_iso), [])
+            if matches:
+                return "completada", [m["id"] for m in matches], [m.get("codigo") for m in matches]
+        elif s_type == "auditoria":
+            matches = auds_by_key.get((proc_id, fecha_iso), [])
             if matches:
                 return "completada", [m["id"] for m in matches], [m.get("codigo") for m in matches]
         # No completada

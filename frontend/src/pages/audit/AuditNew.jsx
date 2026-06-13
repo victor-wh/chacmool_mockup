@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Search, ClipboardCheck, Check, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Loader2, Search, ClipboardCheck, Check, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { auditAPI } from '../../services/auditApi';
 
 const ESTADO_STYLE = {
@@ -11,6 +11,9 @@ const ESTADO_STYLE = {
 
 export default function AuditNew() {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const procFromUrl = params.get('proceso_id') || '';
+
   const [executions, setExecutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -24,10 +27,26 @@ export default function AuditNew() {
     })();
   }, []);
 
-  const filtered = executions.filter(e =>
-    (e.codigo_ejecucion + ' ' + e.proceso_codigo + ' ' + e.proceso_nombre + ' ' + (e.staff_user_name || ''))
-      .toLowerCase().includes(search.toLowerCase())
-  );
+  const procName = useMemo(() => {
+    if (!procFromUrl) return '';
+    const found = executions.find(e => e.proceso_id === procFromUrl);
+    return found?.proceso_nombre || '';
+  }, [executions, procFromUrl]);
+
+  const filtered = executions.filter(e => {
+    if (procFromUrl && e.proceso_id !== procFromUrl) return false;
+    return (e.codigo_ejecucion + ' ' + e.proceso_codigo + ' ' + e.proceso_nombre + ' ' + (e.staff_user_name || ''))
+      .toLowerCase().includes(search.toLowerCase());
+  });
+
+  useEffect(() => {
+    if (procFromUrl && filtered.length === 1 && !selected) {
+      setSelected(filtered[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [procFromUrl, filtered.length]);
+
+  const clearFilter = () => { const n = new URLSearchParams(params); n.delete('proceso_id'); setParams(n); };
 
   const submit = async () => {
     if (!selected) return;
@@ -51,6 +70,16 @@ export default function AuditNew() {
           Selecciona la ejecución que vas a auditar. El indicador junto a cada ejecución muestra si ya tiene supervisión completada.
         </p>
       </header>
+
+      {procFromUrl && (
+        <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3 flex-wrap" data-testid="proc-filter-banner">
+          <span className="text-xs font-semibold text-violet-900 uppercase tracking-wider">Filtrado por proceso:</span>
+          <span className="text-xs bg-white border border-violet-200 rounded-full px-2 py-0.5 text-violet-900">{procName || procFromUrl}</span>
+          <button onClick={clearFilter} className="ml-auto text-xs text-violet-900 hover:text-violet-700 inline-flex items-center gap-1">
+            <X className="w-3 h-3"/>Quitar filtro
+          </button>
+        </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">

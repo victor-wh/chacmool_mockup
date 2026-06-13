@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Loader2, Plus, Eye, Trash2, ShieldCheck, ShieldX, Search, CalendarDays,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, X,
 } from 'lucide-react';
 import { auditAPI } from '../../services/auditApi';
 
@@ -13,6 +13,13 @@ const ESTADO_STYLE = {
 
 export default function AuditList() {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const procFilter = params.get('proceso_id') || '';
+  const procCode = params.get('proceso_codigo') || '';
+  const fechaDesde = params.get('fecha_desde') || '';
+  const fechaHasta = params.get('fecha_hasta') || '';
+  const clearFilters = () => setParams({});
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -34,10 +41,15 @@ export default function AuditList() {
     return () => { alive = false; };
   }, []);
 
-  const filtered = items.filter(s =>
-    (s.codigo + ' ' + s.proceso_codigo + ' ' + s.proceso_nombre + ' ' + (s.evaluado_nombre || ''))
-      .toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = items.filter(s => {
+    if (procFilter && s.proceso_id !== procFilter) return false;
+    if (fechaDesde && s.fecha && s.fecha < fechaDesde) return false;
+    if (fechaHasta && s.fecha && s.fecha > fechaHasta) return false;
+    return (s.codigo + ' ' + s.proceso_codigo + ' ' + s.proceso_nombre + ' ' + (s.evaluado_nombre || ''))
+      .toLowerCase().includes(search.toLowerCase());
+  });
+
+  const hasActiveFilter = procFilter || fechaDesde || fechaHasta;
 
   const handleDelete = async (s) => {
     if (!window.confirm(`¿Eliminar ${s.codigo}?`)) return;
@@ -63,6 +75,22 @@ export default function AuditList() {
           <Plus className="w-4 h-4"/>Nueva auditoría
         </button>
       </header>
+
+      {hasActiveFilter && (
+        <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3 flex-wrap" data-testid="active-filter-banner">
+          <span className="text-xs font-semibold text-violet-900 uppercase tracking-wider">Filtro activo:</span>
+          {procCode && <span className="text-xs bg-white border border-violet-200 rounded-full px-2 py-0.5 font-mono">{procCode}</span>}
+          {fechaDesde && <span className="text-xs text-violet-900">desde {fechaDesde}</span>}
+          {fechaHasta && <span className="text-xs text-violet-900">hasta {fechaHasta}</span>}
+          <button
+            onClick={clearFilters}
+            data-testid="clear-filters-btn"
+            className="ml-auto text-xs text-violet-900 hover:text-violet-700 inline-flex items-center gap-1"
+          >
+            <X className="w-3 h-3"/>Quitar filtro
+          </button>
+        </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">

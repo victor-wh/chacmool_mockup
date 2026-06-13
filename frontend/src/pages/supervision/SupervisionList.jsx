@@ -29,7 +29,7 @@ export default function SupervisionList() {
   const fechaHasta = params.get('fecha_hasta') || '';
   const clearFilters = () => setParams({});
 
-  const [tab, setTab] = useState(TAB_REALIZADAS);
+  const [tab, setTab] = useState(TAB_PENDIENTES);
   const [items, setItems] = useState([]);
   const [pendings, setPendings] = useState([]); // ejecuciones sin supervisar
   const [loading, setLoading] = useState(true);

@@ -27,7 +27,7 @@ export default function SupervisionDetail() {
   const [completing, setCompleting] = useState(false);
   const [evidenceIdx, setEvidenceIdx] = useState(null);
   const [detailsIdx, setDetailsIdx] = useState(null);
-  const [expandedAll, setExpandedAll] = useState(false);
+  const [expandedAll, setExpandedAll] = useState(true);
   const debounceRef = useRef({});
 
   const reload = async () => {

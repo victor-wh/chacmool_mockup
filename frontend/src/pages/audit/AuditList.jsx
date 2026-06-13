@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Loader2, Plus, Eye, Trash2, ShieldCheck, ShieldX, Search, CalendarDays,
-  AlertTriangle, CheckCircle2, X,
+  AlertTriangle, CheckCircle2, X, AlertCircle, ClipboardCheck,
 } from 'lucide-react';
 import { auditAPI } from '../../services/auditApi';
 
@@ -10,6 +10,14 @@ const ESTADO_STYLE = {
   draft: 'bg-amber-100 text-amber-800 border-amber-200',
   completada: 'bg-violet-900 text-white border-violet-900',
 };
+const EXEC_ESTADO_STYLE = {
+  completada: 'bg-emerald-100 text-emerald-700',
+  en_progreso: 'bg-amber-100 text-amber-700',
+  pendiente: 'bg-slate-100 text-slate-700',
+};
+
+const TAB_REALIZADAS = 'realizadas';
+const TAB_PENDIENTES = 'pendientes';
 
 export default function AuditList() {
   const navigate = useNavigate();
@@ -20,21 +28,23 @@ export default function AuditList() {
   const fechaHasta = params.get('fecha_hasta') || '';
   const clearFilters = () => setParams({});
 
+  const [tab, setTab] = useState(TAB_REALIZADAS);
   const [items, setItems] = useState([]);
+  const [pendings, setPendings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const refresh = async () => {
-    setLoading(true);
-    try { setItems(await auditAPI.list()); } catch (e) { console.error(e); }
-    setLoading(false);
-  };
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const r = await auditAPI.list();
-        if (alive) setItems(r);
+        const [auds, exes] = await Promise.all([
+          auditAPI.list(),
+          auditAPI.eligibleExecutions().catch(() => []),
+        ]);
+        if (!alive) return;
+        setItems(auds || []);
+        setPendings(exes || []);
       } catch (e) { console.error(e); }
       if (alive) setLoading(false);
     })();
@@ -49,12 +59,36 @@ export default function AuditList() {
       .toLowerCase().includes(search.toLowerCase());
   });
 
+  const filteredPendings = pendings.filter(e => {
+    if (procFilter && e.proceso_id !== procFilter) return false;
+    if (fechaDesde && e.fecha && e.fecha < fechaDesde) return false;
+    if (fechaHasta && e.fecha && e.fecha > fechaHasta) return false;
+    return (e.codigo_ejecucion + ' ' + e.proceso_codigo + ' ' + e.proceso_nombre + ' ' + (e.staff_user_name || ''))
+      .toLowerCase().includes(search.toLowerCase());
+  });
+
   const hasActiveFilter = procFilter || fechaDesde || fechaHasta;
 
   const handleDelete = async (s) => {
     if (!window.confirm(`¿Eliminar ${s.codigo}?`)) return;
-    try { await auditAPI.remove(s.id); refresh(); } catch (e) { alert(e.message); }
+    try {
+      await auditAPI.remove(s.id);
+      setItems(items.filter(x => x.id !== s.id));
+    } catch (e) { alert(e.message); }
   };
+
+  const handleStartAudit = async (ev, exe) => {
+    ev.stopPropagation();
+    try {
+      const aud = await auditAPI.create(exe.id);
+      navigate(`/audit/${aud.id}`);
+    } catch (e) { alert(e.message); }
+  };
+
+  const tabs = [
+    { v: TAB_REALIZADAS, lbl: 'Auditorías realizadas', count: items.length, Icon: ShieldCheck },
+    { v: TAB_PENDIENTES, lbl: 'Pendientes de auditar', count: pendings.length, Icon: AlertCircle },
+  ];
 
   return (
     <div className="animate-fade-in" data-testid="audit-list-page">
@@ -92,6 +126,30 @@ export default function AuditList() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="border-b border-slate-200 mb-4 flex items-center gap-1">
+        {tabs.map(t => {
+          const active = tab === t.v;
+          const Icon = t.Icon;
+          return (
+            <button
+              key={t.v}
+              type="button"
+              onClick={() => setTab(t.v)}
+              data-testid={`aud-tab-${t.v}`}
+              className={`relative px-4 py-2.5 text-sm font-medium transition-colors inline-flex items-center gap-2 ${active ? 'text-violet-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Icon className="w-4 h-4"/>
+              {t.lbl}
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${active ? 'bg-violet-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                {t.count}
+              </span>
+              {active && <span className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-violet-700"/>}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Search className="w-4 h-4 text-slate-400"/>
@@ -101,18 +159,21 @@ export default function AuditList() {
             placeholder="Buscar por código, proceso, empleado..."
             className="flex-1 text-sm focus:outline-none"
           />
-          <span className="text-xs text-slate-400">{filtered.length} de {items.length}</span>
+          <span className="text-xs text-slate-400">
+            {tab === TAB_REALIZADAS ? `${filtered.length} de ${items.length}` : `${filteredPendings.length} de ${pendings.length}`}
+          </span>
         </div>
         {loading ? (
           <div className="p-8 text-center text-slate-400 inline-flex items-center gap-2 w-full justify-center">
             <Loader2 className="w-4 h-4 animate-spin"/>Cargando…
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-10 text-center text-slate-400">
-            {items.length === 0 ? 'Aún no hay auditorías. Crea una desde "Nueva auditoría".' : 'Sin coincidencias.'}
-          </div>
-        ) : (
-          <table className="w-full text-sm">
+        ) : tab === TAB_REALIZADAS ? (
+          filtered.length === 0 ? (
+            <div className="p-10 text-center text-slate-400">
+              {items.length === 0 ? 'Aún no hay auditorías. Crea una desde "Nueva auditoría".' : 'Sin coincidencias.'}
+            </div>
+          ) : (
+            <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-2 text-left">Código</th>
@@ -184,6 +245,84 @@ export default function AuditList() {
               ))}
             </tbody>
           </table>
+          )
+        ) : (
+          /* TAB Pendientes — ejecuciones sin auditoría */
+          filteredPendings.length === 0 ? (
+            <div className="p-10 text-center text-slate-400">
+              {pendings.length === 0 ? '¡Todo al día! No hay ejecuciones sin auditar.' : 'Sin coincidencias.'}
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-4 py-2 text-left">Ejecución</th>
+                  <th className="px-4 py-2 text-left">Proceso</th>
+                  <th className="px-4 py-2 text-left">Empleado</th>
+                  <th className="px-4 py-2 text-left">Fecha</th>
+                  <th className="px-4 py-2 text-center">Estado</th>
+                  <th className="px-4 py-2 text-center">Supervisión</th>
+                  <th className="px-4 py-2 text-center">Progreso</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPendings.map(e => (
+                  <tr
+                    key={e.id}
+                    className="border-t border-slate-100 hover:bg-slate-50/60"
+                    data-testid={`pending-row-${e.id}`}
+                  >
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-700">{e.codigo_ejecucion}</td>
+                    <td className="px-4 py-2.5">
+                      <p className="text-[10px] font-mono text-slate-400">{e.proceso_codigo}</p>
+                      <p className="font-medium text-slate-800 text-sm">{e.proceso_nombre}</p>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-700">{e.staff_user_name || <span className="text-slate-400">—</span>}</td>
+                    <td className="px-4 py-2.5 text-slate-500 inline-flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{e.fecha || '—'}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${EXEC_ESTADO_STYLE[e.estado] || ''}`}>
+                        {e.estado === 'en_progreso' ? 'En progreso' : e.estado === 'completada' ? 'Completada' : e.estado}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {e.supervision_realizada ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                          <CheckCircle2 className="w-3.5 h-3.5"/>{e.supervision_codigo}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                          <AlertTriangle className="w-3.5 h-3.5"/>No
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center text-xs text-slate-600">
+                      {e.pasos_completados}/{e.total_pasos} pasos
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => navigate(`/process/execution/${e.id}`)}
+                          className="p-1.5 hover:bg-slate-100 rounded text-slate-600"
+                          title="Ver ejecución"
+                        >
+                          <Eye className="w-4 h-4"/>
+                        </button>
+                        <button
+                          onClick={(ev) => handleStartAudit(ev, e)}
+                          data-testid={`start-audit-${e.id}`}
+                          className="bg-violet-700 hover:bg-violet-800 text-white text-xs font-medium rounded-lg px-2.5 py-1 inline-flex items-center gap-1"
+                          title="Iniciar auditoría de esta ejecución"
+                        >
+                          <ClipboardCheck className="w-3.5 h-3.5"/>Auditar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
         )}
       </div>
     </div>

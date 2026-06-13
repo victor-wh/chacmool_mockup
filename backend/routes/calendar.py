@@ -547,12 +547,24 @@ async def get_matrix(
     span_start = weeks[0]["start_iso"] if weeks else ""
     span_end = weeks[-1]["end_iso"] if weeks else ""
     sup_by_proc = {pid: [] for pid in proc_ids}
+    exec_by_proc = {pid: [] for pid in proc_ids}
+    aud_by_proc = {pid: [] for pid in proc_ids}
     if weeks:
         async for sup in db.supervisions.find(
             {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_start, "$lte": span_end}},
             {"_id": 0, "proceso_id": 1, "fecha": 1, "estado": 1, "id": 1, "codigo": 1},
         ):
             sup_by_proc.setdefault(sup["proceso_id"], []).append(sup)
+        async for ex in db.process_executions.find(
+            {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_start, "$lte": span_end}},
+            {"_id": 0, "proceso_id": 1, "fecha": 1, "estado": 1, "id": 1, "codigo_ejecucion": 1},
+        ):
+            exec_by_proc.setdefault(ex["proceso_id"], []).append(ex)
+        async for aud in db.audits.find(
+            {"proceso_id": {"$in": proc_ids}, "fecha": {"$gte": span_start, "$lte": span_end}},
+            {"_id": 0, "proceso_id": 1, "fecha": 1, "estado": 1, "id": 1, "codigo": 1, "aprobada": 1},
+        ):
+            aud_by_proc.setdefault(aud["proceso_id"], []).append(aud)
 
     rows = []
     for p in procs:
@@ -567,6 +579,8 @@ async def get_matrix(
 
         # Estado por semana
         sups = sup_by_proc.get(pid, [])
+        execs = exec_by_proc.get(pid, [])
+        auds = aud_by_proc.get(pid, [])
         week_states = []
         for w in weeks:
             requerida = _schedule_hits_in_range(sch_s, w["start"], w["end"])
@@ -574,12 +588,38 @@ async def get_matrix(
                 s for s in sups
                 if s.get("fecha") and w["start_iso"] <= s["fecha"] <= w["end_iso"]
             ]
+            execs_in_week = [
+                e for e in execs
+                if e.get("fecha") and w["start_iso"] <= e["fecha"] <= w["end_iso"]
+            ]
+            auds_in_week = [
+                a for a in auds
+                if a.get("fecha") and w["start_iso"] <= a["fecha"] <= w["end_iso"]
+            ]
             completada = any(s.get("estado") == "completada" for s in sups_in_week)
             realizada = bool(sups_in_week)
             week_states.append({
                 "label": w["label"],
                 "start": w["start_iso"],
                 "end": w["end_iso"],
+                # Listas detalladas (id + codigo + estado + fecha)
+                "ejecuciones": [
+                    {"id": e["id"], "codigo": e.get("codigo_ejecucion", ""),
+                     "estado": e.get("estado"), "fecha": e.get("fecha")}
+                    for e in execs_in_week
+                ],
+                "supervisiones": [
+                    {"id": s["id"], "codigo": s.get("codigo", ""),
+                     "estado": s.get("estado"), "fecha": s.get("fecha")}
+                    for s in sups_in_week
+                ],
+                "auditorias": [
+                    {"id": a["id"], "codigo": a.get("codigo", ""),
+                     "estado": a.get("estado"), "aprobada": a.get("aprobada"),
+                     "fecha": a.get("fecha")}
+                    for a in auds_in_week
+                ],
+                # Compat con UI previo (resumen general)
                 "supervision_requerida": requerida,
                 "supervision_realizada": realizada,
                 "supervision_completada": completada,

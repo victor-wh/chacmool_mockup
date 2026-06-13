@@ -116,6 +116,6 @@ export const processAPI = {
   },
   listProcessesWithoutSchedule: (scheduleType = 'ejecucion') =>
     api(`/api/calendar/processes-without-schedule?schedule_type=${scheduleType}`),
-  getCalendarMatrix: (year, month) =>
-    api(`/api/calendar/matrix?year=${year}&month=${month}`),
+  getCalendarMatrix: (year, month, includeInactive = false) =>
+    api(`/api/calendar/matrix?year=${year}&month=${month}${includeInactive ? '&include_inactive=true' : ''}`),
 };

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Loader2, ChevronLeft, ChevronRight, Search, AlertTriangle,
-  Download, Filter, X, ArrowRight,
+  Download, Filter, X, ArrowRight, CheckSquare,
 } from 'lucide-react';
 import { processAPI } from '../../services/processApi';
 
@@ -27,7 +27,8 @@ export default function ProcessSupervisionMatrix() {
   const [search, setSearch] = useState('');
   const [areaFilter, setAreaFilter] = useState('');
   const [critFilter, setCritFilter] = useState('');
-  const [popover, setPopover] = useState(null); // { row, w, type, items }
+  const [popover, setPopover] = useState(null);
+  const [includeInactive, setIncludeInactive] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,13 +43,13 @@ export default function ProcessSupervisionMatrix() {
     let alive = true;
     (async () => {
       try {
-        const res = await processAPI.getCalendarMatrix(year, month);
+        const res = await processAPI.getCalendarMatrix(year, month, includeInactive);
         if (alive) setData(res);
       } catch (e) { console.error(e); if (alive) setData(null); }
       if (alive) setLoading(false);
     })();
     return () => { alive = false; };
-  }, [year, month]);
+  }, [year, month, includeInactive]);
 
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
@@ -161,6 +162,17 @@ export default function ProcessSupervisionMatrix() {
           <span className="ml-2 text-sm font-semibold text-slate-800 capitalize">
             {MES_LABELS[month - 1]} de {year}
           </span>
+
+          <button
+            type="button"
+            onClick={() => setIncludeInactive(v => !v)}
+            data-testid="matrix-toggle-all-procs"
+            title={includeInactive ? 'Mostrando todos los procesos (activos + inactivos)' : 'Mostrar también procesos inactivos'}
+            className={`ml-2 text-xs px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5 transition-colors ${includeInactive ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+          >
+            <CheckSquare className="w-3.5 h-3.5"/>
+            {includeInactive ? 'Todos los procesos' : 'Sólo activos'}
+          </button>
         </div>
 
         <div className="ml-auto flex items-center flex-wrap gap-2 text-xs">
@@ -232,10 +244,11 @@ export default function ProcessSupervisionMatrix() {
               <tbody>
                 {filteredRows.map((r, idx) => {
                   const critStyle = CRITICIDAD_STYLES[r.criticidad] || CRITICIDAD_STYLES['—'];
+                  const inactive = r.activo === false;
                   return (
                     <tr
                       key={r.proceso_id}
-                      className="border-t border-slate-100 hover:bg-slate-50/60"
+                      className={`border-t border-slate-100 hover:bg-slate-50/60 ${inactive ? 'opacity-60 bg-slate-50/50' : ''}`}
                       data-testid={`matrix-row-${r.codigo}`}
                     >
                       <td className="px-2.5 py-1.5 font-mono whitespace-nowrap">
@@ -245,7 +258,12 @@ export default function ProcessSupervisionMatrix() {
                         >{r.codigo}</span>
                       </td>
                       <td className="px-2.5 py-1.5 max-w-xs">
-                        <span className="text-slate-800 font-medium" title={r.nombre}>{r.nombre}</span>
+                        <span className={`font-medium ${inactive ? 'text-slate-500' : 'text-slate-800'}`} title={r.nombre}>{r.nombre}</span>
+                        {inactive && (
+                          <span className="ml-2 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300">
+                            Inactivo
+                          </span>
+                        )}
                       </td>
                       <td className="px-2.5 py-1.5 text-slate-700 whitespace-nowrap">{r.area_nombre || '—'}</td>
                       <td className="px-2.5 py-1.5 text-slate-700 whitespace-nowrap">{r.responsable_nombre || '—'}</td>
@@ -320,23 +338,6 @@ function WeekCell({ w, row, onOpen }) {
   }
   const bg = isPendiente ? '#FEF2F2' : '#fff';
 
-  const Pill = ({ label, items, color, bg: pillBg, type }) => {
-    if (!items?.length) return null;
-    return (
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onOpen({ row, w, type, items }); }}
-        className="text-[10px] font-semibold inline-flex items-center gap-1 rounded-full px-2 py-0.5 border w-full justify-between hover:brightness-95 transition"
-        style={{ background: pillBg, color, borderColor: color + '40' }}
-        title={`${label}: ${items.length} · click para ver`}
-        data-testid={`week-pill-${type}-${row.codigo}-${w.label}`}
-      >
-        <span>{label}</span>
-        <span className="bg-white/70 rounded-full px-1.5 leading-none py-0.5 text-[9px]">{items.length}</span>
-      </button>
-    );
-  };
-
   return (
     <td
       className="px-1.5 py-1.5 text-[10px] border-l border-slate-100 align-top"
@@ -349,11 +350,28 @@ function WeekCell({ w, row, onOpen }) {
             <AlertTriangle className="w-3 h-3"/><span className="text-[9px] uppercase">Pendiente</span>
           </div>
         )}
-        <Pill label="Ejecuciones" items={w.ejecuciones} color="#1D4ED8" bg="#DBEAFE" type="ejecuciones"/>
-        <Pill label="Supervisiones" items={w.supervisiones} color="#B45309" bg="#FEF3C7" type="supervisiones"/>
-        <Pill label="Auditorías" items={w.auditorias} color="#6D28D9" bg="#EDE9FE" type="auditorias"/>
+        <WeekPill row={row} w={w} type="ejecuciones"   label="Ejecuciones"   color="#1D4ED8" bg="#DBEAFE" items={w.ejecuciones}   onOpen={onOpen}/>
+        <WeekPill row={row} w={w} type="supervisiones" label="Supervisiones" color="#B45309" bg="#FEF3C7" items={w.supervisiones} onOpen={onOpen}/>
+        <WeekPill row={row} w={w} type="auditorias"    label="Auditorías"    color="#6D28D9" bg="#EDE9FE" items={w.auditorias}    onOpen={onOpen}/>
       </div>
     </td>
+  );
+}
+
+function WeekPill({ row, w, type, label, color, bg, items, onOpen }) {
+  if (!items?.length) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onOpen({ row, w, type, items }); }}
+      className="text-[10px] font-semibold inline-flex items-center gap-1 rounded-full px-2 py-0.5 border w-full justify-between hover:brightness-95 transition"
+      style={{ background: bg, color, borderColor: color + '40' }}
+      title={`${label}: ${items.length} · click para ver`}
+      data-testid={`week-pill-${type}-${row.codigo}-${w.label}`}
+    >
+      <span>{label}</span>
+      <span className="bg-white/70 rounded-full px-1.5 leading-none py-0.5 text-[9px]">{items.length}</span>
+    </button>
   );
 }
 

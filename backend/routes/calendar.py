@@ -503,15 +503,18 @@ def _criticidad_from_steps(critical_count: int, total: int) -> str:
 async def get_matrix(
     year: int = Query(..., ge=2000, le=2100),
     month: int = Query(..., ge=1, le=12),
+    include_inactive: bool = Query(False),
     current_user: dict = Depends(require_admin),
 ):
     """Matriz: una fila por proceso activo con su frecuencia (3 tipos),
     criticidad, responsable de ejecución y estado de supervisión por semana del mes.
+    Si include_inactive=true se muestran también los procesos inactivos.
     """
     weeks = _month_weeks(year, month)
 
-    # Procesos activos
-    procs = await db.process_definitions.find({"activo": True}, {"_id": 0}).sort("codigo", 1).to_list(5000)
+    # Procesos: activos por defecto, o todos si include_inactive
+    proc_query = {} if include_inactive else {"activo": True}
+    procs = await db.process_definitions.find(proc_query, {"_id": 0}).sort("codigo", 1).to_list(5000)
     if not procs:
         return {"year": year, "month": month, "weeks": [{"label": w["label"], "start": w["start_iso"], "end": w["end_iso"]} for w in weeks], "rows": []}
 
@@ -636,6 +639,7 @@ async def get_matrix(
             "tipo_nombre": p.get("tipo_nombre", ""),
             "tipo_color_fondo": p.get("tipo_color_fondo", "#3B82F6"),
             "tipo_color_texto": p.get("tipo_color_texto", "#FFFFFF"),
+            "activo": bool(p.get("activo", True)),
             "responsable_nombre": resp_name,
             "criticidad": _criticidad_from_steps(crit_count.get(pid, 0), total_steps.get(pid, 0)),
             "total_pasos": total_steps.get(pid, 0),

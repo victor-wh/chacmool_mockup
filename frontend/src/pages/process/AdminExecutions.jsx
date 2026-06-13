@@ -1,38 +1,52 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
 import { supervisionAPI } from '../../services/supervisionApi';
-import { Loader2, Eye, Search, Filter, ClipboardCheck } from 'lucide-react';
+import { Loader2, Eye, Search, Filter, ClipboardCheck, X } from 'lucide-react';
 import { softTint } from '../../lib/color';
 
 export default function AdminExecutions() {
+  const [params, setParams] = useSearchParams();
+  const procFromUrl = params.get('proceso_id') || '';
+  const procCodeFromUrl = params.get('proceso_codigo') || '';
+  const fechaDesde = params.get('fecha_desde') || '';
+  const fechaHasta = params.get('fecha_hasta') || '';
+  const clearFilters = () => setParams({});
+
   const [items, setItems] = useState([]);
   const [processes, setProcesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState('');
-  const [filterProc, setFilterProc] = useState('');
+  const filterProc = procFromUrl;  // derivado de URL params
+  const setFilterProc = (val) => {
+    const next = new URLSearchParams(params);
+    if (val) next.set('proceso_id', val); else next.delete('proceso_id');
+    setParams(next);
+  };
   const [search, setSearch] = useState('');
-  const [supMap, setSupMap] = useState({}); // ejecucion_id -> {id, codigo}
+  const [supMap, setSupMap] = useState({});
   const [supervising, setSupervising] = useState(null);
   const navigate = useNavigate();
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [exes, procs, sups] = await Promise.all([
-        processAPI.listExecutions({ fecha: filterDate || undefined, procesoId: filterProc || undefined }),
-        processAPI.listProcesses(),
-        supervisionAPI.list().catch(() => []),
-      ]);
-      setItems(exes); setProcesses(procs);
-      const map = {};
-      (sups || []).forEach(s => { map[s.ejecucion_id] = { id: s.id, codigo: s.codigo, estado: s.estado }; });
-      setSupMap(map);
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterDate, filterProc]);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [exes, procs, sups] = await Promise.all([
+          processAPI.listExecutions({ fecha: filterDate || undefined, procesoId: filterProc || undefined }),
+          processAPI.listProcesses(),
+          supervisionAPI.list().catch(() => []),
+        ]);
+        if (!alive) return;
+        setItems(exes); setProcesses(procs);
+        const map = {};
+        (sups || []).forEach(s => { map[s.ejecucion_id] = { id: s.id, codigo: s.codigo, estado: s.estado }; });
+        setSupMap(map);
+      } catch (e) { console.error(e); }
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [filterDate, filterProc]);
 
   const handleSupervise = async (ev, e) => {
     ev.stopPropagation();
@@ -48,7 +62,13 @@ export default function AdminExecutions() {
     } catch (err) { alert(err.message); setSupervising(null); }
   };
 
-  const filtered = items.filter(e => (e.codigo_ejecucion + e.proceso_nombre + e.staff_user_name).toLowerCase().includes(search.toLowerCase()));
+  const filtered = items.filter(e => {
+    if (fechaDesde && e.fecha && e.fecha < fechaDesde) return false;
+    if (fechaHasta && e.fecha && e.fecha > fechaHasta) return false;
+    return (e.codigo_ejecucion + e.proceso_nombre + e.staff_user_name).toLowerCase().includes(search.toLowerCase());
+  });
+
+  const hasActiveFilter = procFromUrl || fechaDesde || fechaHasta;
 
   return (
     <div className="animate-fade-in">
@@ -56,6 +76,22 @@ export default function AdminExecutions() {
         <h1 className="text-3xl font-semibold text-slate-900 tracking-tight" style={{ fontFamily: 'Outfit' }}>Ejecuciones de Procesos</h1>
         <p className="text-slate-500 mt-1">Monitoreo global de ejecuciones</p>
       </div>
+
+      {hasActiveFilter && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3 flex-wrap" data-testid="active-filter-banner">
+          <span className="text-xs font-semibold text-blue-900 uppercase tracking-wider">Filtro activo:</span>
+          {procCodeFromUrl && <span className="text-xs bg-white border border-blue-200 rounded-full px-2 py-0.5 font-mono">{procCodeFromUrl}</span>}
+          {fechaDesde && <span className="text-xs text-blue-900">desde {fechaDesde}</span>}
+          {fechaHasta && <span className="text-xs text-blue-900">hasta {fechaHasta}</span>}
+          <button
+            onClick={clearFilters}
+            data-testid="clear-filters-btn"
+            className="ml-auto text-xs text-blue-900 hover:text-blue-700 inline-flex items-center gap-1"
+          >
+            <X className="w-3 h-3"/>Quitar filtro
+          </button>
+        </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-[240px]">

@@ -174,26 +174,25 @@ export default function ProcessList() {
       </div>
 
       {/* Lista */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto">
+        <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Código</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Nombre</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Tipo</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Responsable</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Frecuencia Proceso</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Supervisión</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Frecuencia Auditoría</th>
-              <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Pasos</th>
-              <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Hoy</th>
-              <th className="text-center text-xs font-semibold text-slate-500 uppercase px-6 py-3">Estado</th>
-              <th className="text-right text-xs font-semibold text-slate-500 uppercase px-6 py-3">Acciones</th>
+              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Código</th>
+              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[220px]">Nombre / Tipo</th>
+              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Responsable</th>
+              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Proceso</th>
+              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Supervisión</th>
+              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Auditoría</th>
+              <th className="text-center text-[10px] font-semibold text-slate-500 uppercase px-2 py-2.5">Pasos</th>
+              <th className="text-center text-[10px] font-semibold text-slate-500 uppercase px-2 py-2.5">Hoy</th>
+              <th className="text-center text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5">Estado</th>
+              <th className="sticky right-0 bg-slate-50 text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtered.length === 0 && (
-              <tr><td colSpan={11} className="text-center py-12 text-slate-400">
+              <tr><td colSpan={10} className="text-center py-12 text-slate-400">
                 <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300"/>Sin procesos en esta área
               </td></tr>
             )}
@@ -201,33 +200,33 @@ export default function ProcessList() {
               const sch = schedulesMap[p.id] || {};
               const respName = sch.ejecucion?.responsable_nombre || '—';
               return (
-              <tr key={p.id} className="hover:bg-slate-50" data-testid={`process-row-${p.id}`}>
-                <td className="px-6 py-3 font-mono text-xs text-slate-500">{p.codigo}</td>
-                <td className="px-6 py-3">
-                  <p className="font-medium text-slate-900">{p.nombre}</p>
-                  <p className="text-xs text-slate-400 line-clamp-1 max-w-md">{stripHtml(p.descripcion)}</p>
-                </td>
-                <td className="px-6 py-3">
-                  {p.tipo_nombre ? (
+              <tr key={p.id} className="hover:bg-slate-50 group" data-testid={`process-row-${p.id}`}>
+                <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap align-top">{p.codigo}</td>
+                <td className="px-3 py-2 align-top">
+                  <p className="font-medium text-slate-900 leading-tight">{p.nombre}</p>
+                  <p className="text-[11px] text-slate-400 line-clamp-1 max-w-xs">{stripHtml(p.descripcion)}</p>
+                  {p.tipo_nombre && (
                     <span
-                      className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full"
+                      className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-1"
                       style={{ backgroundColor: softTint(p.tipo_color_fondo, 0.15), color: p.tipo_color_fondo }}
                     >
                       {p.tipo_nombre}
                     </span>
-                  ) : <span className="text-xs text-slate-400">—</span>}
+                  )}
                 </td>
-                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{respName}</td>
-                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{describeSchedule(sch.ejecucion)}</td>
-                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{describeSchedule(sch.supervision)}</td>
-                <td className="px-6 py-3 text-sm text-slate-700 whitespace-nowrap">{describeSchedule(sch.auditoria)}</td>
-                <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{p.total_pasos}</td>
-                <td className="px-6 py-3 text-center text-sm font-medium text-slate-700">{executionsToday[p.id] || 0}</td>
-                <td className="px-6 py-3 text-center">
-                  {p.activo ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">Activo</span> : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Inactivo</span>}
+                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{respName}</td>
+                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.ejecucion)}</td>
+                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.supervision)}</td>
+                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.auditoria)}</td>
+                <td className="px-2 py-2 text-center text-xs font-medium text-slate-700 align-top">{p.total_pasos}</td>
+                <td className="px-2 py-2 text-center text-xs font-medium text-slate-700 align-top">{executionsToday[p.id] || 0}</td>
+                <td className="px-3 py-2 text-center align-top">
+                  {p.activo
+                    ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">Activo</span>
+                    : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Inactivo</span>}
                 </td>
-                <td className="px-6 py-3">
-                  <div className="flex justify-end gap-1">
+                <td className="sticky right-0 bg-white group-hover:bg-slate-50 px-2 py-2 align-top shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">
+                  <div className="flex justify-end gap-0.5">
                     <button onClick={() => navigate(`/process/admin/processes/${p.id}/info`)} title="Resumen" data-testid={`process-info-btn-${p.id}`} className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600"><Info className="w-4 h-4"/></button>
                     <button onClick={() => navigate(`/process/admin/processes/${p.id}`)} title="Ver" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Eye className="w-4 h-4"/></button>
                     <button onClick={() => navigate(`/process/admin/processes/${p.id}/edit`)} title="Editar" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Pencil className="w-4 h-4"/></button>

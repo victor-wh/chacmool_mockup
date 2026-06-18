@@ -170,28 +170,27 @@ export default function AdminExecutions() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Código</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[200px]">Proceso / Tipo</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[120px]">% Cumplimiento</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Usuario</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Fecha</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Responsable</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Proceso</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Supervisión</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Auditoría</th>
-                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[120px]">Progreso</th>
                 <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5">Estado</th>
                 <th className="sticky right-0 bg-slate-50 text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && (<tr><td colSpan={11} className="text-center py-10 text-slate-400">Sin ejecuciones</td></tr>)}
+              {filtered.length === 0 && (<tr><td colSpan={10} className="text-center py-10 text-slate-400">Sin ejecuciones</td></tr>)}
               {filtered.map(e => {
                 const sch = schedulesMap[e.proceso_id] || {};
                 const respName = sch.ejecucion?.responsable_nombre || '—';
                 return (
                 <tr key={e.id} className="hover:bg-slate-50 cursor-pointer group" onClick={() => navigate(`/process/execution/${e.id}`)}>
-                  <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap align-top">{e.codigo_ejecucion}</td>
                   <td className="px-3 py-2 align-top">
+                    <p className="text-[10px] font-mono text-slate-400">{e.codigo_ejecucion}</p>
                     <p className="font-medium text-slate-900 leading-tight">{e.proceso_nombre}</p>
                     {e.tipo_nombre && (
                       <span
@@ -202,6 +201,14 @@ export default function AdminExecutions() {
                       </span>
                     )}
                   </td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="flex items-center gap-2 min-w-[100px]">
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${e.estado === 'completado' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${e.progreso}%` }}/>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-700 min-w-[36px] text-right">{e.progreso}%</span>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">
                     {e.staff_user_name}
                     {e.staff_area_nombre && <p className="text-[10px] text-slate-400">{e.staff_area_nombre}</p>}
@@ -211,14 +218,6 @@ export default function AdminExecutions() {
                   <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.ejecucion)}</td>
                   <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.supervision)}</td>
                   <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.auditoria)}</td>
-                  <td className="px-3 py-2 align-top">
-                    <div className="flex items-center gap-2 min-w-[120px]">
-                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${e.estado === 'completado' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${e.progreso}%` }}/>
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-700 min-w-[32px] text-right">{e.progreso}%</span>
-                    </div>
-                  </td>
                   <td className="px-3 py-2 align-top">
                     {e.estado === 'completado' ? (
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">Completado</span>

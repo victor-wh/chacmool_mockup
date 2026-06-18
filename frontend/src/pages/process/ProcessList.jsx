@@ -174,69 +174,76 @@ export default function ProcessList() {
       </div>
 
       {/* Lista */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Código</th>
-              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[220px]">Nombre / Tipo</th>
-              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Responsable</th>
-              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Proceso</th>
-              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Supervisión</th>
-              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Auditoría</th>
-              <th className="text-center text-[10px] font-semibold text-slate-500 uppercase px-2 py-2.5">Pasos</th>
-              <th className="text-center text-[10px] font-semibold text-slate-500 uppercase px-2 py-2.5">Hoy</th>
-              <th className="text-center text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5">Estado</th>
-              <th className="sticky right-0 bg-slate-50 text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filtered.length === 0 && (
-              <tr><td colSpan={10} className="text-center py-12 text-slate-400">
-                <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300"/>Sin procesos en esta área
-              </td></tr>
-            )}
-            {filtered.map(p => {
-              const sch = schedulesMap[p.id] || {};
-              const respName = sch.ejecucion?.responsable_nombre || '—';
-              return (
-              <tr key={p.id} className="hover:bg-slate-50 group" data-testid={`process-row-${p.id}`}>
-                <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap align-top">{p.codigo}</td>
-                <td className="px-3 py-2 align-top">
-                  <p className="font-medium text-slate-900 leading-tight">{p.nombre}</p>
-                  <p className="text-[11px] text-slate-400 line-clamp-1 max-w-xs">{stripHtml(p.descripcion)}</p>
-                  {p.tipo_nombre && (
-                    <span
-                      className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-1"
-                      style={{ backgroundColor: softTint(p.tipo_color_fondo, 0.15), color: p.tipo_color_fondo }}
-                    >
-                      {p.tipo_nombre}
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{respName}</td>
-                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.ejecucion)}</td>
-                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.supervision)}</td>
-                <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.auditoria)}</td>
-                <td className="px-2 py-2 text-center text-xs font-medium text-slate-700 align-top">{p.total_pasos}</td>
-                <td className="px-2 py-2 text-center text-xs font-medium text-slate-700 align-top">{executionsToday[p.id] || 0}</td>
-                <td className="px-3 py-2 text-center align-top">
-                  {p.activo
-                    ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">Activo</span>
-                    : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Inactivo</span>}
-                </td>
-                <td className="sticky right-0 bg-white group-hover:bg-slate-50 px-2 py-2 align-top shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">
-                  <div className="flex justify-end gap-0.5">
-                    <button onClick={() => navigate(`/process/admin/processes/${p.id}/info`)} title="Resumen" data-testid={`process-info-btn-${p.id}`} className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600"><Info className="w-4 h-4"/></button>
-                    <button onClick={() => navigate(`/process/admin/processes/${p.id}`)} title="Ver" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Eye className="w-4 h-4"/></button>
-                    <button onClick={() => navigate(`/process/admin/processes/${p.id}/edit`)} title="Editar" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Pencil className="w-4 h-4"/></button>
-                    <button onClick={() => handleDelete(p.id, p.nombre)} title="Eliminar" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4"/></button>
-                  </div>
-                </td>
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-900 text-white sticky top-0 z-10">
+              <tr>
+                <th className="text-left px-2.5 py-2.5 font-semibold whitespace-nowrap">Código</th>
+                <th className="text-left px-2.5 py-2.5 font-semibold min-w-[220px]">Nombre / Tipo</th>
+                <th className="text-left px-2.5 py-2.5 font-semibold whitespace-nowrap">Responsable</th>
+                <th className="text-left px-2.5 py-2.5 font-semibold whitespace-nowrap">Frecuencia Proceso</th>
+                <th className="text-left px-2.5 py-2.5 font-semibold whitespace-nowrap">Supervisión</th>
+                <th className="text-left px-2.5 py-2.5 font-semibold whitespace-nowrap">Frecuencia Auditoría</th>
+                <th className="text-center px-2.5 py-2.5 font-semibold whitespace-nowrap">Pasos</th>
+                <th className="text-center px-2.5 py-2.5 font-semibold whitespace-nowrap">Hoy</th>
+                <th className="text-center px-2.5 py-2.5 font-semibold whitespace-nowrap">Estado</th>
+                <th className="sticky right-0 bg-slate-900 text-right px-2.5 py-2.5 font-semibold shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.15)]">Acciones</th>
               </tr>
-            );})}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={10} className="text-center py-12 text-slate-400">
+                  <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300"/>Sin procesos en esta área
+                </td></tr>
+              )}
+              {filtered.map(p => {
+                const sch = schedulesMap[p.id] || {};
+                const respName = sch.ejecucion?.responsable_nombre || '—';
+                return (
+                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50/60 group" data-testid={`process-row-${p.id}`}>
+                  <td className="px-2.5 py-1.5 font-mono whitespace-nowrap align-top">
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] text-white"
+                      style={{ background: p.tipo_color_fondo || '#475569', color: p.tipo_color_texto || '#fff' }}
+                    >{p.codigo}</span>
+                  </td>
+                  <td className="px-2.5 py-1.5 align-top max-w-xs">
+                    <p className="font-medium text-slate-800 leading-tight" title={p.nombre}>{p.nombre}</p>
+                    <p className="text-[10px] text-slate-400 line-clamp-1">{stripHtml(p.descripcion)}</p>
+                    {p.tipo_nombre && (
+                      <span
+                        className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded-full mt-1"
+                        style={{ backgroundColor: softTint(p.tipo_color_fondo, 0.15), color: p.tipo_color_fondo }}
+                      >
+                        {p.tipo_nombre}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2.5 py-1.5 text-slate-700 whitespace-nowrap align-top">{respName}</td>
+                  <td className="px-2.5 py-1.5 text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.ejecucion)}</td>
+                  <td className="px-2.5 py-1.5 text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.supervision)}</td>
+                  <td className="px-2.5 py-1.5 text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.auditoria)}</td>
+                  <td className="px-2.5 py-1.5 text-center font-medium text-slate-700 align-top">{p.total_pasos}</td>
+                  <td className="px-2.5 py-1.5 text-center font-medium text-slate-700 align-top">{executionsToday[p.id] || 0}</td>
+                  <td className="px-2.5 py-1.5 text-center align-top whitespace-nowrap">
+                    {p.activo
+                      ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Activo</span>
+                      : <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">Inactivo</span>}
+                  </td>
+                  <td className="sticky right-0 bg-white group-hover:bg-slate-50 px-2.5 py-1.5 align-top shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">
+                    <div className="flex justify-end gap-0.5">
+                      <button onClick={() => navigate(`/process/admin/processes/${p.id}/info`)} title="Resumen" data-testid={`process-info-btn-${p.id}`} className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600"><Info className="w-4 h-4"/></button>
+                      <button onClick={() => navigate(`/process/admin/processes/${p.id}`)} title="Ver" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Eye className="w-4 h-4"/></button>
+                      <button onClick={() => navigate(`/process/admin/processes/${p.id}/edit`)} title="Editar" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Pencil className="w-4 h-4"/></button>
+                      <button onClick={() => handleDelete(p.id, p.nombre)} title="Eliminar" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4"/></button>
+                    </div>
+                  </td>
+                </tr>
+              );})}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processAPI } from '../../services/processApi';
-import { Plus, Eye, Pencil, Trash2, Loader2, FileText, Search, Info, Layers } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Loader2, FileText, Search, ListChecks, Layers } from 'lucide-react';
 import { stripHtml } from '../../lib/html';
 import { softTint } from '../../lib/color';
 
@@ -233,8 +233,8 @@ export default function ProcessList() {
                   </td>
                   <td className="sticky right-0 bg-white group-hover:bg-slate-50 px-2.5 py-1.5 align-top shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">
                     <div className="flex justify-end gap-0.5">
-                      <button onClick={() => navigate(`/process/admin/processes/${p.id}/info`)} title="Resumen" data-testid={`process-info-btn-${p.id}`} className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600"><Info className="w-4 h-4"/></button>
-                      <button onClick={() => navigate(`/process/admin/processes/${p.id}`)} title="Ver" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Eye className="w-4 h-4"/></button>
+                      <button onClick={() => navigate(`/process/admin/processes/${p.id}/info`)} title="Ver" data-testid={`process-info-btn-${p.id}`} className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600"><Eye className="w-4 h-4"/></button>
+                      <button onClick={() => navigate(`/process/admin/processes/${p.id}`)} title="Ver pasos" data-testid={`process-steps-btn-${p.id}`} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><ListChecks className="w-4 h-4"/></button>
                       <button onClick={() => navigate(`/process/admin/processes/${p.id}/edit`)} title="Editar" className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Pencil className="w-4 h-4"/></button>
                       <button onClick={() => handleDelete(p.id, p.nombre)} title="Eliminar" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4"/></button>
                     </div>

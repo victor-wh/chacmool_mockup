@@ -572,23 +572,17 @@ function WeekGrid({ cursor, eventsByDate, onOpenDay }) {
                 const overdue = ev.estado_realizacion === 'vencida';
                 const done = ev.estado_realizacion === 'completada';
                 const bg = overdue ? '#FEE2E2' : (done ? '#DCFCE7' : st.soft);
-                const border = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
                 const txt = overdue ? '#991B1B' : (done ? '#166534' : st.text);
                 const badgeBg = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
                 return (
                   <div
                     key={ev.id}
-                    className="text-[11px] rounded-xl pl-2 pr-2.5 py-1.5 font-medium flex items-start gap-1.5 border relative"
-                    style={{
-                      background: bg,
-                      color: txt,
-                      borderColor: border,
-                      boxShadow: `inset 4px 0 0 0 ${ev.tipo_color_fondo || '#94A3B8'}`,
-                    }}
+                    className="text-[11px] rounded-xl px-2.5 py-1.5 font-medium flex items-start gap-1.5"
+                    style={{ background: bg, color: txt }}
                     title={`${overdue ? '⚠ VENCIDA · ' : done ? '✓ Completada · ' : ''}[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
                   >
                     <span
-                      className="inline-flex items-center justify-center text-[9px] font-bold rounded-full w-4 h-4 flex-shrink-0 mt-0.5 ml-1"
+                      className="inline-flex items-center justify-center text-[9px] font-bold rounded-full w-4 h-4 flex-shrink-0 mt-0.5"
                       style={{ background: badgeBg, color: '#fff' }}
                     >{st.short}</span>
                     <div className="min-w-0 flex-1">
@@ -652,23 +646,17 @@ function CalendarGrid({ cursor, eventsByDate, onOpenDay }) {
                 const overdue = ev.estado_realizacion === 'vencida';
                 const done = ev.estado_realizacion === 'completada';
                 const bg = overdue ? '#FEE2E2' : (done ? '#DCFCE7' : st.soft);
-                const border = overdue ? '#DC2626' : (done ? '#16A34A' : st.color);
                 const txt = overdue ? '#991B1B' : (done ? '#166534' : st.text);
                 const titlePrefix = overdue ? '⚠ VENCIDA · ' : (done ? '✓ Completada · ' : '');
                 return (
                   <div
                     key={ev.id}
-                    className={`text-[10px] rounded-full pl-1 pr-2 py-0.5 truncate font-medium flex items-center gap-1 border ${overdue ? 'animate-pulse-subtle' : ''}`}
-                    style={{
-                      background: bg,
-                      color: txt,
-                      borderColor: border,
-                      boxShadow: `inset 3px 0 0 0 ${ev.tipo_color_fondo || '#94A3B8'}`,
-                    }}
+                    className={`text-[10px] rounded-full px-2 py-0.5 truncate font-medium flex items-center gap-1 ${overdue ? 'animate-pulse-subtle' : ''}`}
+                    style={{ background: bg, color: txt }}
                     title={`${titlePrefix}[${st.lbl}] ${ev.proceso_codigo} · ${ev.proceso_nombre}${ev.hora ? ` · ${ev.hora}` : ''}${ev.responsable_nombre ? ` · ${ev.responsable_nombre}` : ''}`}
                   >
                     <span
-                      className="inline-flex items-center justify-center text-[8px] font-bold rounded-full w-3 h-3 flex-shrink-0 ml-1"
+                      className="inline-flex items-center justify-center text-[8px] font-bold rounded-full w-3 h-3 flex-shrink-0"
                       style={{ background: overdue ? '#DC2626' : (done ? '#16A34A' : st.color), color: '#fff' }}
                     >{st.short}</span>
                     {ev.hora && <span className="opacity-80">{ev.hora}</span>}

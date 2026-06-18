@@ -6,6 +6,28 @@ import { auditAPI } from '../../services/auditApi';
 import { Loader2, Eye, Search, Filter, ClipboardCheck, ShieldCheck, X } from 'lucide-react';
 import { softTint } from '../../lib/color';
 
+const DOW_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function describeSchedule(s) {
+  if (!s) return '—';
+  const hora = s.hora ? ` · ${s.hora}` : '';
+  switch (s.tipo) {
+    case 'no_repite': return `Único: ${s.fecha_unica || '—'}${hora}`;
+    case 'diario':    return `Diario${hora}`;
+    case 'laborales': return `Lun-Vie${hora}`;
+    case 'semanal': {
+      const v = s.dia_semana;
+      if (v === null || v === undefined) return `Semanal${hora}`;
+      return `${DOW_FULL[v] || '—'}${hora}`;
+    }
+    case 'mensual': return `Día ${s.dia_mes} de cada mes${hora}`;
+    case 'anual':   return `${s.dia_mes} ${MESES[(s.mes || 1) - 1]}${hora}`;
+    default: return '—';
+  }
+}
+
 export default function AdminExecutions() {
   const [params, setParams] = useSearchParams();
   const procFromUrl = params.get('proceso_id') || '';
@@ -29,17 +51,19 @@ export default function AdminExecutions() {
   const [supervising, setSupervising] = useState(null);
   const [audMap, setAudMap] = useState({}); // ejecucion_id -> {id, codigo}
   const [auditing, setAuditing] = useState(null);
+  const [schedulesMap, setSchedulesMap] = useState({}); // proceso_id -> { ejecucion?, supervision?, auditoria? }
   const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [exes, procs, sups, auds] = await Promise.all([
+        const [exes, procs, sups, auds, schedules] = await Promise.all([
           processAPI.listExecutions({ fecha: filterDate || undefined, procesoId: filterProc || undefined }),
           processAPI.listProcesses(),
           supervisionAPI.list().catch(() => []),
           auditAPI.list().catch(() => []),
+          processAPI.listSchedules().catch(() => []),
         ]);
         if (!alive) return;
         setItems(exes); setProcesses(procs);
@@ -49,6 +73,13 @@ export default function AdminExecutions() {
         const am = {};
         (auds || []).forEach(a => { am[a.ejecucion_id] = { id: a.id, codigo: a.codigo, estado: a.estado }; });
         setAudMap(am);
+        const schMap = {};
+        (schedules || []).forEach(s => {
+          const stype = s.schedule_type || 'ejecucion';
+          schMap[s.proceso_id] = schMap[s.proceso_id] || {};
+          schMap[s.proceso_id][stype] = s;
+        });
+        setSchedulesMap(schMap);
       } catch (e) { console.error(e); }
       if (alive) setLoading(false);
     })();
@@ -135,53 +166,67 @@ export default function AdminExecutions() {
       {loading ? (
         <div className="flex items-center gap-2 text-slate-500"><Loader2 className="w-4 h-4 animate-spin"/>Cargando...</div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto">
+          <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Código</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Proceso</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Usuario</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Fecha</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Progreso</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Estado</th>
-                <th></th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Código</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[200px]">Proceso / Tipo</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Usuario</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Fecha</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Responsable</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Proceso</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Supervisión</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 whitespace-nowrap">Frecuencia Auditoría</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 min-w-[120px]">Progreso</th>
+                <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5">Estado</th>
+                <th className="sticky right-0 bg-slate-50 text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2.5 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && (<tr><td colSpan={7} className="text-center py-10 text-slate-400">Sin ejecuciones</td></tr>)}
-              {filtered.map(e => (
-                <tr key={e.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => navigate(`/process/execution/${e.id}`)}>
-                  <td className="px-6 py-3 font-mono text-xs text-slate-500">{e.codigo_ejecucion}</td>
-                  <td className="px-6 py-3">
-                    <p className="font-medium text-slate-900">{e.proceso_nombre}</p>
+              {filtered.length === 0 && (<tr><td colSpan={11} className="text-center py-10 text-slate-400">Sin ejecuciones</td></tr>)}
+              {filtered.map(e => {
+                const sch = schedulesMap[e.proceso_id] || {};
+                const respName = sch.ejecucion?.responsable_nombre || '—';
+                return (
+                <tr key={e.id} className="hover:bg-slate-50 cursor-pointer group" onClick={() => navigate(`/process/execution/${e.id}`)}>
+                  <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap align-top">{e.codigo_ejecucion}</td>
+                  <td className="px-3 py-2 align-top">
+                    <p className="font-medium text-slate-900 leading-tight">{e.proceso_nombre}</p>
                     {e.tipo_nombre && (
                       <span
-                        className="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full"
+                        className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-1"
                         style={{ backgroundColor: softTint(e.tipo_color_fondo, 0.15), color: e.tipo_color_fondo }}
                       >
                         {e.tipo_nombre}
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-3 text-sm text-slate-700">{e.staff_user_name}<p className="text-xs text-slate-400">{e.staff_area_nombre}</p></td>
-                  <td className="px-6 py-3 text-sm text-slate-600">{e.fecha} {e.hora_inicio}</td>
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-2 min-w-[150px]">
+                  <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">
+                    {e.staff_user_name}
+                    {e.staff_area_nombre && <p className="text-[10px] text-slate-400">{e.staff_area_nombre}</p>}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-600 whitespace-nowrap align-top">{e.fecha} {e.hora_inicio}</td>
+                  <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{respName}</td>
+                  <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.ejecucion)}</td>
+                  <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.supervision)}</td>
+                  <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap align-top">{describeSchedule(sch.auditoria)}</td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="flex items-center gap-2 min-w-[120px]">
                       <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                         <div className={`h-full ${e.estado === 'completado' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${e.progreso}%` }}/>
                       </div>
-                      <span className="text-xs font-semibold text-slate-700 min-w-[40px] text-right">{e.progreso}%</span>
+                      <span className="text-[10px] font-semibold text-slate-700 min-w-[32px] text-right">{e.progreso}%</span>
                     </div>
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-3 py-2 align-top">
                     {e.estado === 'completado' ? (
-                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-50 text-green-700">Completado</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">Completado</span>
                     ) : (
-                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-50 text-blue-700">En progreso</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">En progreso</span>
                     )}
                   </td>
-                  <td className="px-6 py-3 text-right">
+                  <td className="sticky right-0 bg-white group-hover:bg-slate-50 px-2 py-2 align-top shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.05)]">
                     <div className="flex items-center justify-end gap-1.5">
                       {(() => {
                         const sup = supMap[e.id];
@@ -219,7 +264,7 @@ export default function AdminExecutions() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>

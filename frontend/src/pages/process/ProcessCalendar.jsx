@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { processAPI } from '../../services/processApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { softTint } from '../../lib/color';
 
 const DOW_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MES_LABELS = [
@@ -415,8 +416,8 @@ export default function ProcessCalendar() {
                   >
                     <div className="flex items-start gap-2">
                       <span
-                        className="text-[9px] font-mono px-1 py-0.5 rounded text-white"
-                        style={{ background: p.tipo_color_fondo || '#475569' }}
+                        className="text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold"
+                        style={{ background: softTint(p.tipo_color_fondo, 0.15), color: p.tipo_color_fondo || '#475569' }}
                       >
                         {p.codigo}
                       </span>
@@ -449,7 +450,7 @@ export default function ProcessCalendar() {
                       className="w-full text-left border border-slate-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50/30 group"
                     >
                       <div className="flex items-start gap-2">
-                        <span className="text-[9px] font-mono px-1 py-0.5 rounded text-white" style={{ background: s.tipo_color_fondo || '#475569' }}>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold" style={{ background: softTint(s.tipo_color_fondo, 0.15), color: s.tipo_color_fondo || '#475569' }}>
                           {s.proceso_codigo}
                         </span>
                         <Pencil className="w-3 h-3 text-slate-400 group-hover:text-blue-600 ml-auto flex-shrink-0"/>
@@ -482,7 +483,7 @@ export default function ProcessCalendar() {
                 {sidebarSchedules.map(s => (
                   <div key={`${s.proceso_id}-${s.schedule_type}`} className="border border-slate-200 rounded-lg p-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-mono px-1 py-0.5 rounded text-white" style={{ background: s.tipo_color_fondo || '#475569' }}>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold" style={{ background: softTint(s.tipo_color_fondo, 0.15), color: s.tipo_color_fondo || '#475569' }}>
                         {s.proceso_codigo}
                       </span>
                     </div>

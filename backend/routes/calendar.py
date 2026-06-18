@@ -498,6 +498,17 @@ def _schedule_hits_in_range(sch: Optional[dict], d_from: date, d_to: date) -> bo
     return False
 
 
+def _schedule_hit_dates(sch: Optional[dict], d_from: date, d_to: date) -> list:
+    """Lista de fechas ISO (YYYY-MM-DD) donde el schedule aplica en el rango."""
+    if not sch:
+        return []
+    out = []
+    for d in _date_range(d_from, d_to):
+        if _matches(sch, d):
+            out.append(d.strftime("%Y-%m-%d"))
+    return out
+
+
 def _criticidad_from_steps(critical_count: int, total: int) -> str:
     if total <= 0:
         return "—"
@@ -597,6 +608,9 @@ async def get_matrix(
         week_states = []
         for w in weeks:
             requerida = _schedule_hits_in_range(sch_s, w["start"], w["end"])
+            exec_hits = _schedule_hit_dates(sch_e, w["start"], w["end"])
+            sup_hits  = _schedule_hit_dates(sch_s, w["start"], w["end"])
+            aud_hits  = _schedule_hit_dates(sch_a, w["start"], w["end"])
             sups_in_week = [
                 s for s in sups
                 if s.get("fecha") and w["start_iso"] <= s["fecha"] <= w["end_iso"]
@@ -639,6 +653,10 @@ async def get_matrix(
                 "supervision_count": len(sups_in_week),
                 "supervision_ids": [s.get("id") for s in sups_in_week],
                 "supervision_codigos": [s.get("codigo") for s in sups_in_week],
+                # Fechas programadas (schedules) por tipo, para filtros Hoy/Semana/Mes
+                "ejecuciones_programadas": exec_hits,
+                "supervisiones_programadas": sup_hits,
+                "auditorias_programadas": aud_hits,
             })
 
         rows.append({

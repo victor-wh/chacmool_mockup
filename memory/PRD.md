@@ -66,6 +66,12 @@ Módulo para revisar ejecuciones pasadas paso a paso.
 
 ## Cambios recientes
 
+### Feb 18 2026 — Filtro por tipo en Matriz de procesos
+- Toolbar de "Matriz de procesos" añade chips **Todos / Ejecución / Supervisión / Auditoría** (`ProcessSupervisionMatrix.jsx`).
+- El filtrado de filas considera **eventos realizados + fechas programadas por schedule** en el rango visible (Hoy/Semana/Mes), no la mera presencia de una frecuencia.
+- Backend: `/api/calendar/matrix` ahora devuelve por semana `ejecuciones_programadas`, `supervisiones_programadas`, `auditorias_programadas` (lista de fechas ISO derivadas del schedule). Helper nuevo `_schedule_hit_dates`.
+- En vista "Hoy" solo se muestran filas que tienen evento o programación para hoy del tipo seleccionado.
+
 ### Feb 5 2026 — Vista Semana en el calendario
 - Toggle **Semana / Mes** en la toolbar del calendario (`ProcessCalendar.jsx`).
 - Vista Semana: 7 columnas Lun-Dom más altas con eventos en cards ampliadas (hora, código, nombre completo del proceso).

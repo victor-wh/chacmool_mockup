@@ -30,6 +30,7 @@ export default function ProcessSupervisionMatrix() {
   const [popover, setPopover] = useState(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [view, setView] = useState('mes'); // 'hoy' | 'semana' | 'mes'
+  const [typeFilter, setTypeFilter] = useState('todos'); // 'todos' | 'ejecucion' | 'supervision' | 'auditoria'
 
   // Cuando cambia a "hoy" o "semana", forzar el mes actual
   useEffect(() => {
@@ -73,20 +74,6 @@ export default function ProcessSupervisionMatrix() {
     return Array.from(set).sort();
   }, [data]);
 
-  const filteredRows = useMemo(() => {
-    const rows = data?.rows || [];
-    const q = search.trim().toLowerCase();
-    return rows.filter(r => {
-      if (areaFilter && r.area_nombre !== areaFilter) return false;
-      if (critFilter && r.criticidad !== critFilter) return false;
-      if (q) {
-        const blob = `${r.codigo} ${r.nombre} ${r.area_nombre} ${r.responsable_nombre}`.toLowerCase();
-        if (!blob.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [data, search, areaFilter, critFilter]);
-
   // Índices de semanas visibles según la vista
   const visibleWeekIdx = useMemo(() => {
     const weeks = data?.weeks || [];
@@ -98,6 +85,56 @@ export default function ProcessSupervisionMatrix() {
     if (curWeek === -1) curWeek = 0;
     return [curWeek];
   }, [data, view]);
+
+  const filteredRows = useMemo(() => {
+    const rows = data?.rows || [];
+    const q = search.trim().toLowerCase();
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    // Para una fila, calcula los items visibles según vista (hoy/semana/mes) y typeFilter
+    // Considera tanto eventos realizados como fechas programadas por el schedule.
+    const countMatchingEvents = (r) => {
+      let exec = 0, sup = 0, aud = 0;
+      const inRange = (iso, w) => view === 'hoy'
+        ? iso === todayIso
+        : (iso && iso >= w.start && iso <= w.end);
+      for (const i of visibleWeekIdx) {
+        const w = r.weeks?.[i];
+        if (!w) continue;
+        // Realizados
+        exec += (w.ejecuciones   || []).filter(it => inRange(it.fecha, w)).length;
+        sup  += (w.supervisiones || []).filter(it => inRange(it.fecha, w)).length;
+        aud  += (w.auditorias    || []).filter(it => inRange(it.fecha, w)).length;
+        // Programados (schedules que disparan en la semana / día)
+        exec += (w.ejecuciones_programadas   || []).filter(d => inRange(d, w)).length;
+        sup  += (w.supervisiones_programadas || []).filter(d => inRange(d, w)).length;
+        aud  += (w.auditorias_programadas    || []).filter(d => inRange(d, w)).length;
+      }
+      return { exec, sup, aud };
+    };
+
+    return rows.filter(r => {
+      if (areaFilter && r.area_nombre !== areaFilter) return false;
+      if (critFilter && r.criticidad !== critFilter) return false;
+      if (q) {
+        const blob = `${r.codigo} ${r.nombre} ${r.area_nombre} ${r.responsable_nombre}`.toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+
+      // Filtrado por tipo + vista: solo mostrar filas con eventos reales en el rango visible.
+      // En vista "Mes" + "Todos" no filtramos por eventos (se ve toda la matriz).
+      if (typeFilter === 'todos') {
+        if (view === 'mes') return true;
+        const { exec, sup, aud } = countMatchingEvents(r);
+        return (exec + sup + aud) > 0;
+      }
+      const { exec, sup, aud } = countMatchingEvents(r);
+      if (typeFilter === 'ejecucion')   return exec > 0;
+      if (typeFilter === 'supervision') return sup  > 0;
+      if (typeFilter === 'auditoria')   return aud  > 0;
+      return true;
+    });
+  }, [data, search, areaFilter, critFilter, typeFilter, view, visibleWeekIdx]);
 
   const totals = useMemo(() => {
     const weeks = data?.weeks || [];
@@ -209,6 +246,27 @@ export default function ProcessSupervisionMatrix() {
                 onClick={() => setView(o.v)}
                 data-testid={`matrix-view-${o.v}`}
                 className={`text-xs px-3 py-1 rounded-md transition-colors ${view === o.v ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                {o.lbl}
+              </button>
+            ))}
+          </div>
+
+          {/* Type filter: Todos / Ejecución / Supervisión / Auditoría */}
+          <div className="ml-2 inline-flex items-center bg-slate-100 rounded-lg p-0.5">
+            {[
+              { v: 'todos',       lbl: 'Todos',       color: '#0F172A' },
+              { v: 'ejecucion',   lbl: 'Ejecución',   color: '#1D4ED8' },
+              { v: 'supervision', lbl: 'Supervisión', color: '#B45309' },
+              { v: 'auditoria',   lbl: 'Auditoría',   color: '#6D28D9' },
+            ].map(o => (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => setTypeFilter(o.v)}
+                data-testid={`matrix-type-${o.v}`}
+                className={`text-xs px-3 py-1 rounded-md transition-colors ${typeFilter === o.v ? 'bg-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-700'}`}
+                style={typeFilter === o.v ? { color: o.color } : {}}
               >
                 {o.lbl}
               </button>

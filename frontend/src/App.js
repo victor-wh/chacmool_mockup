@@ -1026,7 +1026,7 @@ const Sidebar = ({ isAdmin, setIsAdmin }) => {
     { path: "/supervision", icon: ClipboardCheck, label: "Supervisión", description: "Revisar ejecuciones", roles: ['admin'], group: 'menu-procesos' },
     { path: "/audit", icon: ShieldCheck, label: "Auditoría", description: "Auditar y validar supervisión", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/calendar", icon: CalendarClock, label: "Calendario", description: "Procesos agendados", roles: ['admin', 'empleado', 'manager'], group: 'menu-procesos' },
-    { path: "/process/supervision-matrix", icon: LayoutGrid, label: "Matriz de supervisión", description: "Estado mensual por semana", roles: ['admin'], group: 'menu-procesos' },
+    { path: "/process/supervision-matrix", icon: LayoutGrid, label: "Matriz de procesos", description: "Estado mensual por semana", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/types", icon: Sliders, label: "Tipo de Proceso", description: "Categorías y colores", roles: ['admin'], group: 'menu-procesos' },
     { path: "/process/admin/consequences", icon: AlertTriangle, label: "Consecuencias", description: "Niveles de omisión", roles: ['admin'], group: 'menu-procesos' },
   ];
